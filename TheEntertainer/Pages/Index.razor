@@ -1,0 +1,28 @@
+﻿@page "/"
+@using Newtonsoft.Json
+@using SpotifyAPI.Web
+
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>Index</PageTitle>
+<button @onclick="StartJam">Start a new Jam!!!</button>
+
+@code
+{
+    string trackName = "";
+    private bool _dataIsLoaded = false;
+    private bool _isNewJamReady = false;
+    private int _jamId;
+    SearchResponse _response;
+
+    public void StartJam()
+    {
+        HttpResponseMessage response = Http.GetAsync("login").Result;
+        var jsonString = response.Content.ReadAsStringAsync().Result;
+        dynamic jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonString);
+        string query = jsonObject.query;
+        Navigation.NavigateTo(query, true, true);
+
+    }
+}

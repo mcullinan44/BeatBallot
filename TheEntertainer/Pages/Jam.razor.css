@@ -1,0 +1,53 @@
+﻿.jam-board-container {
+    padding: 10px;
+    width: 100%;
+ 
+    display: flex;
+    column-gap: 5%;
+}
+
+
+.jam-board-left {
+    padding: 10px 10px 10px 10px;
+    width: 30%;
+    border-style: double;
+    border-color: #0E79B2;
+}
+
+.jam-board-center {
+    padding: 10px 10px 10px 10px;
+    width: 40%;
+    border-style: double;
+}
+
+.jam-board-right {
+    padding: 10px 10px 10px 10px;
+    margin: 10px 10px 10px 10px;
+    border-style: double;
+}
+
+.playlist-list {
+    margin-bottom: 25px;
+}
+
+
+.playlist-actions {
+    padding: 10px 10px 10px 10px;
+
+}
+
+    .playlist-actions button {
+        margin: 10px 10px 10px 10px;
+    }
+
+
+
+.playing-song td  {
+    background-color:#F39237;
+
+}
+
+
+.not-playing-song {
+
+}

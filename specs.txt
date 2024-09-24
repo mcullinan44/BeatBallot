@@ -1,0 +1,21 @@
+DJ
+
+Connect to Spotify
+Select a Playlist
+Create a Party
+Start Vote
+End Vote
+Order Songs
+Refresh playlist - ignore played
+Refresh List - include all
+End Party
+
+
+Party:
+Party.Start => Generated QR Code
+Party.End => Invalidate QR Code
+
+Partier:
+Scan QR Code
+View playlist automatically update)
+Vote on next song

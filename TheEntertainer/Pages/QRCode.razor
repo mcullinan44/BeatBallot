@@ -1,0 +1,36 @@
+﻿@page "/qrcode"
+
+@using QRCoder
+@inject IConfiguration Configuration
+
+@if (QRCodeImage != null)
+{
+    <h1>Tell us what you want to hear!!!</h1>
+    <img src="@QRCodeImage" />
+    <div>Created: @(DateTime.Now.ToString())</div>
+}
+
+@code {
+
+    private string QRCodeText;
+    private string QRCodeImage;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "jamId")]
+    public string JamId { get; set; }
+
+    private bool _isQrCodeGenerated = false;
+
+    protected override Task OnInitializedAsync()
+    {
+        if (!_isQrCodeGenerated)
+        {
+            using QRCodeGenerator qrGenerator = new QRCodeGenerator();
+            QRCodeData qrCodeData = qrGenerator.CreateQrCode(Configuration["BaseUrl"] + "/vote?jamId=" + JamId, QRCodeGenerator.ECCLevel.Q);
+            Base64QRCode qrCode = new Base64QRCode(qrCodeData);
+            QRCodeImage = $"data:image/png;base64,{qrCode.GetGraphic(10)}";
+            _isQrCodeGenerated = true;
+        }
+
+        return base.OnInitializedAsync();
+    }
+}

@@ -1,0 +1,99 @@
+﻿@page "/vote"
+@using Entertainer.Models
+@using Entertainer.Services
+@using TheEntertainer.Services
+@using Microsoft.AspNetCore.SignalR.Client
+@using Newtonsoft.Json
+@inject NotificationService NotificationService
+@inject JamCacheService JamCache
+@inject NavigationManager Navigation
+@inject ILogger<SpotifyService> Logger;
+
+<div class="song-list">
+    @if (_isActivelyVoting)
+    {
+        <h3>Vote</h3>
+
+        <h4>Your Remaining Votes:</h4>
+        <p>@_remainingVotes</p>
+        @if (_jam.VoteTargets.Count > 0)
+        {
+            <table class="minimalistBlack">
+                <tr>
+                    <th>Track</th>
+                    <th>Artist</th>
+                    <th>Total Votes</th>
+                    <th></th>
+                </tr>
+                @foreach (VoteTarget track in _jam.VoteTargets)
+                {
+                    <tr>
+                        <td>
+                            @track.SongName
+                        </td>
+                        <td> @track.ArtistName</td>
+                        <td>
+                            @track.TotalVotes
+                        </td>
+                        <td>
+                            @if (_remainingVotes == 0)
+                            {
+                                <p>Done</p>
+                            }
+                            else
+                            {
+                                <button class="up-vote" @onclick="() => VoteTrack(track.ExternalTrackUri, 1)">+1</button>
+                            }
+                            
+                        </td>
+                    </tr>
+                }
+            </table>
+        }
+    }
+    else
+    {
+        <h3>Sorry...the vote is not active :(</h3>
+    }
+</div>
+@code {
+
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "jamId")]
+    public string JamId { get; set; }
+    private JamPlaylist _jamPlaylist;
+    private Entertainer.Models.Jam _jam;
+    private bool _isActivelyVoting = false;
+    private int _maxVotes = 20;
+    private int _remainingVotes;
+    private HubConnection _hubConnection;
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        _jam = JamCache.JamList.FirstOrDefault(i => i.Id == JamId);
+        _isActivelyVoting = _jam.IsVoting;
+        _remainingVotes = _maxVotes;
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
+            .Build();
+        await _hubConnection.StartAsync();
+        _hubConnection.On<string>("SendVoteToUsers", (message) => Handler(message));
+    }
+
+    private Task Handler(string message)
+    {
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task VoteTrack(string trackUri, int value)
+    {
+        _isActivelyVoting = _jam.IsVoting;
+        _remainingVotes -= value;
+        VoteNotification voteNotification = new VoteNotification(JamId, trackUri, value);
+        await NotificationService.SendTrackVoteNotification(voteNotification, _jam);
+        StateHasChanged();
+
+    }
+}
