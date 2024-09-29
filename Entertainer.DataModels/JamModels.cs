@@ -9,6 +9,7 @@ namespace Entertainer.Models
         {
             CreatedDateTime = DateTime.Now;
             DeeJayUser = deeJayUser;
+
         }
 
         public string Id { get; set; }
@@ -31,6 +32,7 @@ namespace Entertainer.Models
         }
 
 
+        public int MaxVotes { get; set; }
 
     }
 

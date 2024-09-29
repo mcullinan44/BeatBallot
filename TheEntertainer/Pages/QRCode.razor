@@ -1,36 +1,35 @@
 ﻿@page "/qrcode"
 
+@using System.Globalization
+@using Entertainer.Services
 @using QRCoder
 @inject IConfiguration Configuration
+@inject ILogger<SpotifyService> Logger;
 
-@if (QRCodeImage != null)
+@if (_qrCodeImage != null)
 {
     <h1>Tell us what you want to hear!!!</h1>
-    <img src="@QRCodeImage" />
-    <div>Created: @(DateTime.Now.ToString())</div>
+    <img src="@_qrCodeImage" alt=""/>
+    <div>Created: @DateTime.Now.ToString(CultureInfo.InvariantCulture)</div>
 }
 
 @code {
-
-    private string QRCodeText;
-    private string QRCodeImage;
     [Parameter]
     [SupplyParameterFromQuery(Name = "jamId")]
     public string JamId { get; set; }
 
-    private bool _isQrCodeGenerated = false;
+    private bool _isQrCodeGenerated;
+    private string _qrCodeImage;
 
     protected override Task OnInitializedAsync()
     {
-        if (!_isQrCodeGenerated)
-        {
-            using QRCodeGenerator qrGenerator = new QRCodeGenerator();
-            QRCodeData qrCodeData = qrGenerator.CreateQrCode(Configuration["BaseUrl"] + "/vote?jamId=" + JamId, QRCodeGenerator.ECCLevel.Q);
-            Base64QRCode qrCode = new Base64QRCode(qrCodeData);
-            QRCodeImage = $"data:image/png;base64,{qrCode.GetGraphic(10)}";
-            _isQrCodeGenerated = true;
-        }
-
+        if (_isQrCodeGenerated) return base.OnInitializedAsync();
+        using QRCodeGenerator qrGenerator = new QRCodeGenerator();
+        QRCodeData qrCodeData = qrGenerator.CreateQrCode(Configuration["BaseUrl"] + "/vote?jamId=" + JamId, QRCodeGenerator.ECCLevel.Q);
+        Base64QRCode qrCode = new Base64QRCode(qrCodeData);
+        _qrCodeImage = $"data:image/png;base64,{qrCode.GetGraphic(10)}";
+        _isQrCodeGenerated = true;
+        Logger.LogInformation($"JamId={JamId};{DateTime.Now};Event=QRCodePresented");
         return base.OnInitializedAsync();
     }
 }

@@ -3,7 +3,6 @@
 @using Entertainer.Services
 @using TheEntertainer.Services
 @using Microsoft.AspNetCore.SignalR.Client
-@using Newtonsoft.Json
 @inject NotificationService NotificationService
 @inject JamCacheService JamCache
 @inject NavigationManager Navigation
@@ -62,27 +61,32 @@
     [Parameter]
     [SupplyParameterFromQuery(Name = "jamId")]
     public string JamId { get; set; }
-    private JamPlaylist _jamPlaylist;
+
+
     private Entertainer.Models.Jam _jam;
-    private bool _isActivelyVoting = false;
-    private int _maxVotes = 20;
+    private bool _isActivelyVoting;
     private int _remainingVotes;
     private HubConnection _hubConnection;
-    
 
     protected override async Task OnInitializedAsync()
     {
         _jam = JamCache.JamList.FirstOrDefault(i => i.Id == JamId);
-        _isActivelyVoting = _jam.IsVoting;
-        _remainingVotes = _maxVotes;
+        if (_jam != null) _isActivelyVoting = _jam.IsVoting;
+        _remainingVotes = _jam.MaxVotes;
+        await ConfigureNotification();
+
+    }
+
+    private async Task ConfigureNotification()
+    {
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
             .Build();
         await _hubConnection.StartAsync();
-        _hubConnection.On<string>("SendVoteToUsers", (message) => Handler(message));
+        _hubConnection.On<string>("SendVoteToUsers", NotificationReceivedHandler);
     }
 
-    private Task Handler(string message)
+    private Task NotificationReceivedHandler(string message)
     {
         return InvokeAsync(StateHasChanged);
     }

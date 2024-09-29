@@ -1,11 +1,9 @@
 ﻿@page "/jam"
-@using System.Net
 @using Entertainer.Models
 @using Entertainer.Services
 @using Microsoft.AspNetCore.SignalR.Client
 @using Newtonsoft.Json
 @using SpotifyAPI.Web
-@using TheEntertainer.Components.Buttons
 @inject NavigationManager Navigation
 @inject SpotifyService Spotify
 @inject IConfiguration Configuration
@@ -13,12 +11,12 @@
 @inject ILogger<SpotifyService> Logger;
 @inject IJSRuntime JS
 @inject HttpClient Http
-
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
 
 <div class="jam-board-container">
     <div class="jam-board-left">
         <h3>Manage</h3>
+        <p>Max Votes per person:</p><input  @bind="_maxVotes" />
         @if (_spotifyAuthorized)
         {
             <div class="playlist-list">
@@ -64,19 +62,20 @@
             <div class="song-list">
                 @if (_trackForPlaylist.Count > 0)
                 {
-
+   
+                    
                     <div class="playlist-actions">
                         
                         @if (_isReadyToStartJam)
                         {
                             @if (_isVotingEnabled)
                             {
-                                <button @onclick="() => EndVoting()">End Voting</button>
+                                <button @onclick="EndVoting">End Voting</button>
                                 <a href="@QrCodeLink" target="_blank">Open QR Code in New Tab</a>
                             }
                             else
                             {
-                                  <button @onclick="() => StartVoting()">Start Voting</button>
+                                  <button @onclick="StartVoting">Start Voting</button>
                             }
 
                             <br/>
@@ -145,75 +144,92 @@
     [Parameter]
     [SupplyParameterFromQuery(Name = "state")]
     public string State { get; set; }
+
     private bool _spotifyAuthorized;
-    private Paging<FullPlaylist> _playlist = new();
-    private Paging<PlaylistTrack<IPlayableItem>> _playlistSongs = new();
-    private List<FullTrack> _trackForPlaylist = new();
-    private Entertainer.Models.Jam _jam = new(new DeeJayUser("Matt"));
-    private JamPlaylist _jamPlaylist;
-    private HubConnection hubConnection;
-    private List<string> notifications = new();
-    private Guid _jamId;
-    private string _voteLink;
     private bool _isReadyToStartJam;
     private bool _isVotingEnabled;
-
     private string QrCodeLink => $"{Configuration["BaseUrl"]}/qrcode?jamId={_jamId.ToString()}";
     private string VoteLink => QrCodeLink.Replace("qrcode", "vote");
+    private Paging<FullPlaylist> _playlist = new();
+    private Paging<PlaylistTrack<IPlayableItem>> _playlistSongs = new();
+    private List<FullTrack> _trackForPlaylist = [];
+    private readonly Entertainer.Models.Jam _jam = new(new DeeJayUser("Matt"));
+    private JamPlaylist _jamPlaylist;
+    private HubConnection _hubConnection;
+    private Guid _jamId;
+    private int _maxVotes;
 
     protected override async Task OnInitializedAsync()
     {
-        if (!_spotifyAuthorized)
+        if (_spotifyAuthorized)
+            return;
+        string accessToken = await localStorage.GetItemAsync<string>("sat");
+        if (string.IsNullOrEmpty(accessToken))
         {
-            string accessToken = await localStorage.GetItemAsync<string>("sat");
-            if (string.IsNullOrEmpty(accessToken))
+            SpotifyClientConfig config = SpotifyClientConfig.CreateDefault();
+            try
             {
-                SpotifyClientConfig config = SpotifyClientConfig.CreateDefault();
-                try
-                {
-                    AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient(config).RequestToken(new AuthorizationCodeTokenRequest(Configuration["SpotifyClientId"], Configuration["SpotifyClientSecret"], Code, new Uri(Configuration["BaseUrl"] + "/jam")));
-                    accessToken = tokenResponse.AccessToken;
-                }
-                catch (Exception e)
-                {
-                    if (e.Message.Contains("invalid_grant"))
-                    {
-                        HttpResponseMessage response = Http.GetAsync("login").Result;
-                        var jsonString = response.Content.ReadAsStringAsync().Result;
-                        dynamic jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonString);
-                        string query = jsonObject.query;
-                        Navigation.NavigateTo(query, true, true);
-                        return;
-                    }
-                    throw;
-                }
+                AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient(config).RequestToken(new AuthorizationCodeTokenRequest(Configuration["SpotifyClientId"] ?? string.Empty, Configuration["SpotifyClientSecret"] ?? string.Empty, Code, new Uri(Configuration["BaseUrl"] + "/jam")));
+                accessToken = tokenResponse.AccessToken;
                 await localStorage.SetItemAsync("sat", accessToken);
+                await localStorage.SetItemAsync("satexp", tokenResponse.ExpiresIn);
+                await localStorage.SetItemAsync("satcr", tokenResponse.CreatedAt);
             }
-            Spotify.AccessToken = accessToken;
-            _spotifyAuthorized = true;
-            hubConnection = new HubConnectionBuilder()
-                .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
-                .Build();
-            await hubConnection.StartAsync();
-            hubConnection.On<string>("SendVoteToHost", (message) => Handler(message));
-            _playlist = await Spotify.GetPlaylistsAsync();
-
-            Logger.LogInformation($"Jam Initialized: {DateTime.Now}");
+            catch (Exception e)
+            {
+                if (!e.Message.Contains("invalid_grant")) throw;
+                await ReAuthenticate();
+                return;
+            }
         }
+        else
+        {
+            int expiresIn = await localStorage.GetItemAsync<int>("satexp");
+            DateTime createdAt = await localStorage.GetItemAsync<DateTime>("satcr");
+            if (DateTime.UtcNow > createdAt.AddSeconds(expiresIn))
+            {
+                await ReAuthenticate();
+                return;
+            }
+        }
+        await ConfigureNotification();
+        Spotify.AccessToken = accessToken;
+        _spotifyAuthorized = true;
+        _playlist = await Spotify.GetPlaylistsAsync();
+        Logger.LogInformation($"Jam Initialized: {DateTime.Now}");
     }
 
-    private Task Handler(string message)
+    private async Task ConfigureNotification()
     {
-        notifications.Add(message);
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
+            .Build();
+        await _hubConnection.StartAsync();
+        _hubConnection.On<string>("SendVoteToHost", NotificationReceivedHandler);
+    }
+
+    private Task NotificationReceivedHandler(string message)
+    {
         VoteNotification voteNotification = JsonConvert.DeserializeObject<VoteNotification>(message);
         JamTrack jamTrack = _jamPlaylist.JamTrackList.FirstOrDefault(i => i.SpotifyFullTrack.Uri == voteNotification.ExternalTrackUri);
-        jamTrack.NumberOfVotes += voteNotification.Value;
+        if (jamTrack != null) jamTrack.NumberOfVotes += voteNotification.Value;
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=Notification Received={message}");
         return InvokeAsync(StateHasChanged);
     }
 
+    private async Task ReAuthenticate()
+    {
 
-    private async Task OrderAndAddToQueue()
+        await localStorage.RemoveItemAsync("sat");
+        await localStorage.RemoveItemAsync("satexp");
+        await localStorage.RemoveItemAsync("satcr");
+        using HttpResponseMessage response = await Http.GetAsync("login");
+        string jsonString = await response.Content.ReadAsStringAsync();
+        dynamic jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonString);
+        Navigation.NavigateTo(jsonObject.query, true, true);
+    }
+
+    private void OrderAndAddToQueue()
     {
         _jam.JamPlaylist.JamTrackList = _jam.JamPlaylist.JamTrackList.OrderByDescending(item => item.NumberOfVotes).ToList();
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=List Reordered");
@@ -229,15 +245,14 @@
         StateHasChanged();
     }
 
-
-    private async Task EndVoting()
+    private void EndVoting()
     {
         _jam.IsVoting = false;
         _isVotingEnabled = false;
+        _jam.JamPlaylist.IsActive = false;
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=Voting Ended");
         StateHasChanged();
     }
-
 
     private async Task PlaySong(JamTrack jamTrack)
     { 
@@ -252,16 +267,14 @@
 
     private async Task StopSong(JamTrack jamTrack)
     {
-        Spotify.PausePlaybackAsync();
+        await Spotify.PausePlaybackAsync();
         jamTrack.IsPlaying = false;
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=Stop Song;Track={jamTrack.SpotifyFullTrack.Name}");
-
     }
 
     private bool IsPlaylistActive(string playlistId)
     {
-        return _jam.JamPlaylist != null && _jam.JamPlaylist.ExternalId == playlistId && _jam.JamPlaylist.IsActive;
-
+        return  _jam.JamPlaylist != null && _jam.JamPlaylist.ExternalId == playlistId && _jam.JamPlaylist.IsActive;
     }
 
     private async Task GetSongsForPlayList(string playlistId)
@@ -274,9 +287,9 @@
         _jamPlaylist.IsActive = true;
         _jam.Id = _jamId.ToString();
         _jam.JamPlaylist = _jamPlaylist;
+        _jam.MaxVotes = _maxVotes;
         _isReadyToStartJam = true;
         JamCache.AddJam(_jam);
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=Get Songs for Playlist;");
-
     }
 }

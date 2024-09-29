@@ -1,6 +1,5 @@
 ﻿@page "/"
 @using Newtonsoft.Json
-@using SpotifyAPI.Web
 
 @inject NavigationManager Navigation
 @inject HttpClient Http
@@ -10,12 +9,6 @@
 
 @code
 {
-    string trackName = "";
-    private bool _dataIsLoaded = false;
-    private bool _isNewJamReady = false;
-    private int _jamId;
-    SearchResponse _response;
-
     public void StartJam()
     {
         HttpResponseMessage response = Http.GetAsync("login").Result;
