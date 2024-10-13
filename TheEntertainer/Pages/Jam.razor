@@ -16,7 +16,6 @@
 <div class="jam-board-container">
     <div class="jam-board-left">
         <h3>Manage</h3>
-        <p>Max Votes per person:</p><input  @bind="_maxVotes" />
         @if (_spotifyAuthorized)
         {
             <div class="playlist-list">
@@ -287,7 +286,7 @@
         _jamPlaylist.IsActive = true;
         _jam.Id = _jamId.ToString();
         _jam.JamPlaylist = _jamPlaylist;
-        _jam.MaxVotes = _maxVotes;
+        _jam.MaxVotes = 50;
         _isReadyToStartJam = true;
         JamCache.AddJam(_jam);
         Logger.LogInformation($"JamId={_jam.Id};{DateTime.Now};Event=Get Songs for Playlist;");
