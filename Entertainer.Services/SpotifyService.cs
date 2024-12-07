@@ -70,7 +70,11 @@ namespace Entertainer.Services
             catch (Exception e)
             {
                 _logger.LogError(e, "An error occurred playing a song");
-                throw;
+
+                if(e.Message.ToLower().Contains("no active device found"))
+                {
+                    throw new Exception(e.Message, e);
+                }
             }
         }
 

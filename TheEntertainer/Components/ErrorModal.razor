@@ -1,0 +1,30 @@
+﻿@code {
+
+    private string _errorMessage;
+
+    private bool IsVisible { get; set; }
+
+    public void ShowModal(string errorMessage)
+    {
+        _errorMessage = errorMessage;
+        IsVisible = true;
+    }
+
+    public void HideModal()
+    {
+        _errorMessage = string.Empty;
+        IsVisible = false;
+    }
+}
+
+<div class="modal" @onclick="HideModal" style="display: @(IsVisible ? "block" : "block")">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Error</h2>
+            <button @onclick="HideModal">Close</button>
+        </div>
+        <div class="modal-body">
+            <p>_errorMessage</p>
+        </div>
+    </div>
+</div>

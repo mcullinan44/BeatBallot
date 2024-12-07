@@ -18,3 +18,21 @@
         </article>
     </main>
 </div>
+
+@code
+{
+
+    protected override Task OnInitializedAsync()
+    {
+        try
+        {
+            return base.OnInitializedAsync();
+        }
+        catch (Exception e)
+        {
+
+        }
+        return null;
+
+    }
+}

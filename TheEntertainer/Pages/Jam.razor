@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using Newtonsoft.Json
 @using SpotifyAPI.Web
+@using TheEntertainer.Components
 @inject NavigationManager Navigation
 @inject SpotifyService Spotify
 @inject IConfiguration Configuration
@@ -14,7 +15,10 @@
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
 
 <div class="jam-board-container">
+
+
     <div class="jam-board-left">
+        <ErrorModal @ref="_errorModalRef" />
         <h3>Manage</h3>
         @if (_spotifyAuthorized)
         {
@@ -157,6 +161,8 @@
     private HubConnection _hubConnection;
     private Guid _jamId;
     private int _maxVotes;
+    private string _errorMessage;
+    private ErrorModal _errorModalRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -255,7 +261,19 @@
 
     private async Task PlaySong(JamTrack jamTrack)
     { 
-        await Spotify.PlaySongAsync(jamTrack.SpotifyFullTrack.Uri);
+
+        try
+        {
+            await Spotify.PlaySongAsync(jamTrack.SpotifyFullTrack.Uri);
+        }
+        catch(Exception e)
+        {
+
+            _errorModalRef.ShowModal(e.Message);
+            return;
+        }
+
+        
         foreach (JamTrack track in _jamPlaylist.JamTrackList)
         {
             track.IsPlaying = false;
