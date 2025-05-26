@@ -19,8 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Entertainer.Data\BeatBallot.Data.csproj" />
-    <ProjectReference Include="..\Entertainer.Services\BeatBallot.Services.csproj" />
+    <ProjectReference Include="..\BeatBallot.DataModels\BeatBallot.Models.csproj" />
+    <ProjectReference Include="..\BeatBallot.Data\BeatBallot.Data.csproj" />
+    <ProjectReference Include="..\BeatBallot.Services\BeatBallot.Services.csproj" />
   </ItemGroup>
 
   <ItemGroup>
