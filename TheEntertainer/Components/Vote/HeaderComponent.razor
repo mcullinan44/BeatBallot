@@ -1,0 +1,44 @@
+﻿@* HeaderComponent.razor *@
+
+<div class="header">
+    <div class="logo">BeatBallot</div>
+    <div class="subtitle">Democracy meets the dancefloor</div>
+</div>
+
+<style>
+    .header {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        padding: 30px 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient( 45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px );
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+    .logo {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 2;
+    }
+
+    .subtitle {
+        color: rgba(255,255,255,0.9);
+        margin-top: 10px;
+        font-size: 1.1em;
+        position: relative;
+        z-index: 2;
+    }
+</style>

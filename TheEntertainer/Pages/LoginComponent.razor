@@ -1,0 +1,261 @@
+﻿@* LoginComponent.razor *@
+@page "/login"
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">BeatBallot</div>
+            <div class="auth-subtitle">DJ Portal Login</div>
+        </div>
+
+        <div class="auth-content">
+            <div class="spotify-section">
+                <div class="spotify-intro">
+                    <div class="spotify-icon">🎵</div>
+                    <h3>Connect with Spotify</h3>
+                    <p>Sign in with your Spotify account to access your music library and create the perfect playlist experience.</p>
+                </div>
+
+                <button class="spotify-login-btn" @onclick="LoginWithSpotify" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="loading-spinner"></span>
+                        <span>Connecting to Spotify...</span>
+                    }
+                    else
+                    {
+                        <div class="spotify-btn-content">
+                            <div class="spotify-logo">🎵</div>
+                            <span>Continue with Spotify</span>
+                        </div>
+                    }
+                </button>
+
+                <div class="spotify-features">
+                    <div class="feature-item">
+                        <span class="feature-icon">🎶</span>
+                        <span>Access your music library</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🎧</span>
+                        <span>Create custom playlists</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🗳️</span>
+                        <span>Let audiences vote on tracks</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-footer">
+                <p>Don't have a Spotify account? <a href="https://www.spotify.com/us/signup" target="_blank" class="spotify-signup-link">Create one here</a></p>
+                <p class="privacy-note">We only access your public profile and music library. Your personal data stays private.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isLoading = false;
+
+    private async Task LoginWithSpotify()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // TODO: Implement Spotify OAuth login
+            // Redirect to Spotify authorization URL
+            // Example: NavigationManager.NavigateTo("https://accounts.spotify.com/authorize?...")
+            await Task.Delay(1000); // Simulate OAuth redirect
+
+            // After successful authentication, navigate to dashboard
+            // NavigationManager.NavigateTo("/dashboard");
+        }
+        catch (Exception ex)
+        {
+            // Handle login error
+            Console.WriteLine($"Spotify login error: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}
+
+<style>
+    .auth-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+    }
+
+    .auth-card {
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        max-width: 400px;
+        overflow: hidden;
+    }
+
+    .auth-header {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        padding: 30px 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .auth-logo {
+        font-size: 2.2em;
+        font-weight: bold;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin-bottom: 5px;
+    }
+
+    .auth-subtitle {
+        color: rgba(255,255,255,0.9);
+        font-size: 1em;
+    }
+
+    .auth-content {
+        padding: 30px;
+    }
+
+    .spotify-section {
+        text-align: center;
+    }
+
+    .spotify-intro {
+        margin-bottom: 30px;
+    }
+
+    .spotify-icon {
+        font-size: 3em;
+        margin-bottom: 15px;
+        display: block;
+    }
+
+    .spotify-intro h3 {
+        color: white;
+        font-size: 1.4em;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+
+    .spotify-intro p {
+        color: rgba(255,255,255,0.8);
+        line-height: 1.5;
+        font-size: 0.95em;
+    }
+
+    .spotify-login-btn {
+        width: 100%;
+        padding: 16px 20px;
+        background: #1db954;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-weight: bold;
+        font-size: 1.1em;
+        color: white;
+        box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+    }
+
+        .spotify-login-btn:hover:not(:disabled) {
+            background: #1ed760;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
+        }
+
+        .spotify-login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+    .spotify-btn-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .spotify-logo {
+        font-size: 1.3em;
+    }
+
+    .loading-spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .spotify-features {
+        text-align: left;
+        margin-bottom: 25px;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        color: rgba(255,255,255,0.9);
+        font-size: 0.9em;
+    }
+
+    .feature-icon {
+        font-size: 1.2em;
+        width: 24px;
+        text-align: center;
+    }
+
+    .auth-footer {
+        text-align: center;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+        .auth-footer p {
+            color: rgba(255,255,255,0.7);
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+        }
+
+    .spotify-signup-link {
+        color: #1db954;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+
+        .spotify-signup-link:hover {
+            color: #1ed760;
+            text-decoration: underline;
+        }
+
+    .privacy-note {
+        font-size: 0.8em !important;
+        color: rgba(255,255,255,0.6) !important;
+        font-style: italic;
+    }
+</style>

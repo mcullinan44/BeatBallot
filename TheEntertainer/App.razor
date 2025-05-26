@@ -1,12 +1,57 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿@using BeatBallot.Web.Shared
+@using BeatBallot.Web.Pages
+@* App.razor *@
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@GetLayoutForRoute(routeData.PageType)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <p role="alert">You are not authorized to access this resource.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    private Type GetLayoutForRoute(Type pageType)
+    {
+        // Get the current URL path
+        var currentUri = NavigationManager?.Uri ?? "";
+        var path = new Uri(currentUri).AbsolutePath.ToLower();
+        
+        // Routes that should NOT use DJLayoutComponent
+        var publicRoutes = new[] { "/vote", "/login", "/register" };
+        
+        if (publicRoutes.Any(route => path.StartsWith(route)))
+        {
+            return typeof(MainLayout); // Use default layout
+        }
+        
+        // Routes that should use DJLayoutComponent (DJ dashboard pages)
+        var djRoutes = new[] { "/dj" };
+        
+        if (djRoutes.Any(route => path.StartsWith(route)))
+        {
+            return typeof(DJLayoutComponent);
+        }
+        
+        // Default layout for other pages
+        return typeof(MainLayout);
+    }
+    
+    [Inject] private NavigationManager? NavigationManager { get; set; }
+}

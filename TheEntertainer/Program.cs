@@ -1,10 +1,11 @@
-using Entertainer.Services;
 using SpotifyAPI.Web;
 using System.Text;
-using Entertainer.Data;
-using TheEntertainer.Services;
-using TheEntertainer.Middleware;
+using BeatBallot.Data;
+using BeatBallot.Services;
+using BeatBallot.Web.Middleware;
+using BeatBallot.Web.Services;
 using Blazored.LocalStorage;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,18 +27,14 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 
 builder.Services.AddScoped<SpotifyService>();
-builder.Services.AddSingleton<NotificationService>(); // Register NotificationService
 builder.Services.AddSingleton<StringCompressorService>();
 builder.Services.AddSingleton<JamCacheService>();
 builder.Services.AddBlazoredLocalStorage();
 
 
 
-
-
-
 var app = builder.Build();
-app.MapGet("/login", () =>
+app.MapGet("/loginold", () =>
 {
     string clientId = builder.Configuration["SpotifyClientId"];
     string redirectUri = builder.Configuration["BaseUrl"] + "/jam";

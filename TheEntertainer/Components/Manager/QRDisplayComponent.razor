@@ -1,0 +1,365 @@
+﻿@* QRDisplayComponent.razor *@
+@page "/qr/{SessionId}"
+@layout MainLayout
+@inject NavigationManager Navigation
+@using BeatBallot.Web.Shared
+@using QRCoder
+
+<div class="qr-display-page">
+    <div class="qr-container">
+        <div class="header-section">
+            <div class="logo">BeatBallot</div>
+            <div class="subtitle">Scan to Vote on Music</div>
+        </div>
+
+        <div class="qr-section">
+            <div class="qr-code-display">
+                <img src="@_qrCodeImage" alt=""/>
+            </div>
+
+            <div class="voting-url-display">
+                <div class="url-text">@GetVotingUrl()</div>
+            </div>
+        </div>
+
+        <div class="instructions-section">
+            <div class="instruction-step">
+                <div class="step-number">1</div>
+                <div class="step-text">Open your phone's camera</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">2</div>
+                <div class="step-text">Point at the QR code above</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">3</div>
+                <div class="step-text">Tap the notification to start voting</div>
+            </div>
+        </div>
+
+        <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span class="live-text">LIVE VOTING</span>
+        </div>
+
+        <div class="session-info">
+            <div class="session-label">Session ID</div>
+            <div class="session-code">@SessionId.Substring(0, 12)...</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+    private string _qrCodeImage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Validate session ID
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        using QRCodeGenerator qrGenerator = new QRCodeGenerator();
+        QRCodeData qrCodeData = qrGenerator.CreateQrCode(SessionId, QRCodeGenerator.ECCLevel.Q);
+
+
+        Base64QRCode qrCode = new Base64QRCode(qrCodeData);
+        _qrCodeImage = $"data:image/png;base64,{qrCode.GetGraphic(10)}";
+
+        // TODO: Verify session is active
+        // var isActive = await SessionService.IsSessionActiveAsync(SessionId);
+        // if (!isActive) Navigation.NavigateTo("/");
+    }
+
+    private string GetVotingUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/vote/{SessionId}";
+    }
+}
+
+<style>
+    .qr-display-page {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .qr-container {
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(20px);
+        border-radius: 30px;
+        border: 2px solid rgba(255,255,255,0.1);
+        padding: 60px;
+        text-align: center;
+        max-width: 600px;
+        width: 100%;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+    }
+
+    .header-section {
+        margin-bottom: 50px;
+    }
+
+    .logo {
+        font-size: 3.5em;
+        font-weight: bold;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 15px;
+    }
+
+    .subtitle {
+        color: rgba(255,255,255,0.9);
+        font-size: 1.4em;
+        font-weight: 500;
+    }
+
+    .qr-section {
+        margin-bottom: 50px;
+    }
+
+    .qr-code-display {
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .qr-placeholder {
+        width: 300px;
+        height: 300px;
+        background: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        border: 8px solid white;
+    }
+
+    .qr-grid {
+        width: 260px;
+        height: 260px;
+        position: relative;
+        background: linear-gradient(90deg, black 50%, transparent 50%), linear-gradient(black 50%, transparent 50%);
+        background-size: 20px 20px;
+        opacity: 0.8;
+    }
+
+    .qr-pattern {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .qr-corner {
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        border: 8px solid black;
+        background: white;
+    }
+
+        .qr-corner::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 24px;
+            height: 24px;
+            background: black;
+        }
+
+        .qr-corner.top-left {
+            top: 0;
+            left: 0;
+        }
+
+        .qr-corner.top-right {
+            top: 0;
+            right: 0;
+        }
+
+        .qr-corner.bottom-left {
+            bottom: 0;
+            left: 0;
+        }
+
+    .qr-data {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(45deg, black 25%, transparent 25%), linear-gradient(-45deg, black 25%, transparent 25%), linear-gradient(45deg, transparent 75%, black 75%), linear-gradient(-45deg, transparent 75%, black 75%);
+        background-size: 10px 10px;
+    }
+
+    .voting-url-display {
+        background: rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 20px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .url-text {
+        color: #3498db;
+        font-family: 'Courier New', monospace;
+        font-size: 1.1em;
+        font-weight: bold;
+        word-break: break-all;
+    }
+
+    .instructions-section {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 40px;
+        gap: 20px;
+    }
+
+    .instruction-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+
+    .step-number {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.3em;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+    }
+
+    .step-text {
+        color: rgba(255,255,255,0.9);
+        font-size: 1em;
+        text-align: center;
+        line-height: 1.3;
+    }
+
+    .live-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 30px;
+        background: rgba(231,76,60,0.2);
+        border: 2px solid #e74c3c;
+        border-radius: 25px;
+        padding: 15px 30px;
+    }
+
+    .live-dot {
+        width: 12px;
+        height: 12px;
+        background: #e74c3c;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+    .live-text {
+        color: #e74c3c;
+        font-weight: bold;
+        font-size: 1.1em;
+        letter-spacing: 1px;
+    }
+
+    .session-info {
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+        padding: 15px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .session-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .session-code {
+        color: white;
+        font-family: 'Courier New', monospace;
+        font-size: 1em;
+        font-weight: bold;
+    }
+
+
+
+    .logo {
+        font-size: 2.5em;
+    }
+
+    .subtitle {
+        font-size: 1.2em;
+    }
+
+    .qr-placeholder {
+        width: 250px;
+        height: 250px;
+    }
+
+    .qr-grid {
+        width: 210px;
+        height: 210px;
+    }
+
+    .instructions-section {
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .instruction-step {
+        flex-direction: row;
+        text-align: left;
+    }
+
+    .step-number {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+    }
+
+    .step-text {
+        text-align: left;
+    }
+
+    .url-text {
+        font-size: 0.9em;
+    }
+
+    }
+
+
+    .qr-placeholder {
+        width: 200px;
+        height: 200px;
+    }
+
+    .qr-grid {
+        width: 160px;
+        height: 160px;
+    }
+
+    }
+</style>

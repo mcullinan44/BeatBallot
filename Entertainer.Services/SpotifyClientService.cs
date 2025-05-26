@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SpotifyAPI.Web;
+﻿using SpotifyAPI.Web;
 
-namespace Entertainer.Services
+namespace BeatBallot.Services
 {
     public sealed class SpotifyClientService
     {

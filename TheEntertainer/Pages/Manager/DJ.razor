@@ -1,0 +1,584 @@
+﻿@* DJHomeComponent.razor *@
+@page "/dj"
+@using BeatBallot.Web.Shared
+@layout DJLayoutComponent
+
+<div class="dj-home">
+    <div class="welcome-section">
+        <div class="welcome-content">
+            <h1 class="welcome-title">Welcome back, DJ Alex!</h1>
+            <p class="welcome-subtitle">Ready to create some amazing music experiences?</p>
+        </div>
+        <div class="quick-actions">
+            <button class="quick-action-btn primary" @onclick="CreatePlaylist">
+                <div class="action-icon">➕</div>
+                <div class="action-text">
+                    <span class="action-title">Create Playlist</span>
+                    <span class="action-desc">Start a new collection</span>
+                </div>
+            </button>
+            <button class="quick-action-btn secondary" @onclick="GoLive">
+                <div class="action-icon">🎧</div>
+                <div class="action-text">
+                    <span class="action-title">Go Live</span>
+                    <span class="action-desc">Start voting session</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-overview">
+        <div class="overview-cards">
+            <div class="overview-card">
+                <div class="card-icon">🎵</div>
+                <div class="card-content">
+                    <div class="card-number">@totalPlaylists</div>
+                    <div class="card-label">Total Playlists</div>
+                    <div class="card-change positive">+3 this week</div>
+                </div>
+            </div>
+
+            <div class="overview-card">
+                <div class="card-icon">🗳️</div>
+                <div class="card-content">
+                    <div class="card-number">@totalVotes</div>
+                    <div class="card-label">Total Votes</div>
+                    <div class="card-change positive">+247 today</div>
+                </div>
+            </div>
+
+            <div class="overview-card">
+                <div class="card-icon">👥</div>
+                <div class="card-content">
+                    <div class="card-number">@totalListeners</div>
+                    <div class="card-label">Total Listeners</div>
+                    <div class="card-change positive">+12 this hour</div>
+                </div>
+            </div>
+
+            <div class="overview-card">
+                <div class="card-icon">⏱️</div>
+                <div class="card-content">
+                    <div class="card-number">@hoursPlayed</div>
+                    <div class="card-label">Hours Played</div>
+                    <div class="card-change neutral">This month</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <div class="activity-header">
+            <h2 class="section-title">Recent Activity</h2>
+            <a href="/dj/history" class="view-all-link">View All</a>
+        </div>
+
+        <div class="activity-list">
+            @foreach (var activity in recentActivities)
+            {
+                <div class="activity-item">
+                    <div class="activity-icon">@activity.Icon</div>
+                    <div class="activity-content">
+                        <div class="activity-title">@activity.Title</div>
+                        <div class="activity-description">@activity.Description</div>
+                        <div class="activity-time">@activity.TimeAgo</div>
+                    </div>
+                    @if (activity.HasAction)
+                    {
+                        <button class="activity-action" @onclick="() => HandleActivityAction(activity.Id)">
+                            @activity.ActionText
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="popular-playlists">
+        <div class="section-header">
+            <h2 class="section-title">Your Popular Playlists</h2>
+            <a href="/dj/playlists" class="view-all-link">View All</a>
+        </div>
+
+        <div class="playlists-preview">
+            @foreach (var playlist in popularPlaylists)
+            {
+                <div class="playlist-preview-card" @onclick="() => ViewPlaylist(playlist.Id)">
+                    @if (playlist.IsLive)
+                    {
+                        <div class="live-badge">
+                            <span class="live-dot"></span>
+                            LIVE
+                        </div>
+                    }
+
+                    <div class="playlist-cover">
+                        <div class="cover-placeholder">
+                            <span class="cover-icon">🎵</span>
+                        </div>
+                    </div>
+
+                    <div class="playlist-info">
+                        <h3 class="playlist-title">@playlist.Name</h3>
+                        <div class="playlist-stats">
+                            <span>@playlist.TrackCount songs</span>
+                            <span>@playlist.TotalVotes votes</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private int totalPlaylists = 15;
+    private int totalVotes = 3847;
+    private int totalListeners = 1239;
+    private string hoursPlayed = "47h";
+
+    private List<ActivityModel> recentActivities = new()
+    {
+        new()
+        {
+            Id = 1,
+            Icon = "🎵",
+            Title = "New playlist created",
+            Description = "Friday Night Vibes playlist is ready for voting",
+            TimeAgo = "2 hours ago",
+            HasAction = true,
+            ActionText = "Go Live"
+        },
+        new()
+        {
+            Id = 2,
+            Icon = "🗳️",
+            Title = "High engagement session",
+            Description = "Dance Floor Hits received 247 votes in 3 hours",
+            TimeAgo = "5 hours ago",
+            HasAction = false,
+            ActionText = ""
+        },
+        new()
+        {
+            Id = 3,
+            Icon = "👥",
+            Title = "New listener milestone",
+            Description = "You've reached 1,200+ total listeners",
+            TimeAgo = "1 day ago",
+            HasAction = false,
+            ActionText = ""
+        }
+    };
+
+    private List<PlaylistPreviewModel> popularPlaylists = new()
+    {
+        new()
+        {
+            Id = 1,
+            Name = "Friday Night Vibes",
+            TrackCount = 45,
+            TotalVotes = 1247,
+            IsLive = true
+        },
+        new()
+        {
+            Id = 2,
+            Name = "Dance Floor Hits",
+            TrackCount = 67,
+            TotalVotes = 2134,
+            IsLive = false
+        },
+        new()
+        {
+            Id = 3,
+            Name = "Chill Lounge",
+            TrackCount = 32,
+            TotalVotes = 856,
+            IsLive = false
+        }
+    };
+
+    private async Task CreatePlaylist()
+    {
+        // Navigate to create playlist
+        // NavigationManager.NavigateTo("/dj/playlists/create");
+    }
+
+    private async Task GoLive()
+    {
+        // Navigate to playlists to select one to go live
+        // NavigationManager.NavigateTo("/dj/playlists");
+    }
+
+    private async Task HandleActivityAction(int activityId)
+    {
+        // Handle specific activity actions
+        switch (activityId)
+        {
+            case 1:
+                // Go live with new playlist
+                // NavigationManager.NavigateTo("/dj/playlists/1/live");
+                break;
+        }
+    }
+
+    private async Task ViewPlaylist(int playlistId)
+    {
+        // Navigate to playlist details
+        // NavigationManager.NavigateTo($"/dj/playlists/{playlistId}");
+    }
+
+    public class ActivityModel
+    {
+        public int Id { get; set; }
+        public string Icon { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string TimeAgo { get; set; } = "";
+        public bool HasAction { get; set; }
+        public string ActionText { get; set; } = "";
+    }
+
+    public class PlaylistPreviewModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int TrackCount { get; set; }
+        public int TotalVotes { get; set; }
+        public bool IsLive { get; set; }
+    }
+}
+
+<style>
+    .dj-home {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .welcome-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 40px;
+        padding: 30px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .welcome-title {
+        color: white;
+        font-size: 2.2em;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .welcome-subtitle {
+        color: rgba(255,255,255,0.8);
+        font-size: 1.1em;
+        margin: 0;
+    }
+
+    .quick-actions {
+        display: flex;
+        gap: 15px;
+    }
+
+    .quick-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 20px;
+        border: none;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: left;
+    }
+
+        .quick-action-btn.primary {
+            background: linear-gradient(45deg, #e74c3c, #f39c12);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+        }
+
+        .quick-action-btn.secondary {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .quick-action-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .quick-action-btn.primary:hover {
+            box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+        }
+
+        .quick-action-btn.secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+    .action-icon {
+        font-size: 2em;
+    }
+
+    .action-title {
+        font-weight: bold;
+        font-size: 1.1em;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .action-desc {
+        font-size: 0.9em;
+        opacity: 0.8;
+    }
+
+    .dashboard-overview {
+        margin-bottom: 40px;
+    }
+
+    .overview-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .overview-card {
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 25px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s ease;
+    }
+
+        .overview-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+    .card-icon {
+        font-size: 2.5em;
+        opacity: 0.8;
+    }
+
+    .card-content {
+        flex: 1;
+    }
+
+    .card-number {
+        color: #f39c12;
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .card-label {
+        color: white;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .card-change {
+        font-size: 0.85em;
+    }
+
+        .card-change.positive {
+            color: #2ecc71;
+        }
+
+        .card-change.neutral {
+            color: rgba(255,255,255,0.6);
+        }
+
+    .recent-activity, .popular-playlists {
+        margin-bottom: 40px;
+    }
+
+    .activity-header, .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        color: white;
+        font-size: 1.8em;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .view-all-link {
+        color: #f39c12;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+
+        .view-all-link:hover {
+            color: #e67e22;
+        }
+
+    .activity-list {
+        background: rgba(0,0,0,0.3);
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,0.1);
+        overflow: hidden;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+    }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+    .activity-icon {
+        font-size: 1.5em;
+        width: 40px;
+        text-align: center;
+    }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-title {
+        color: white;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .activity-description {
+        color: rgba(255,255,255,0.8);
+        font-size: 0.9em;
+        margin-bottom: 3px;
+    }
+
+    .activity-time {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.8em;
+    }
+
+    .activity-action {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9em;
+    }
+
+        .activity-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(231,76,60,0.3);
+        }
+
+    .playlists-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .playlist-preview-card {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+        .playlist-preview-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+    .live-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #e74c3c;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7em;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .live-dot {
+        width: 6px;
+        height: 6px;
+        background: white;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+    .playlist-cover {
+        width: 60px;
+        height: 60px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    .cover-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cover-icon {
+        color: white;
+        font-size: 1.5em;
+    }
+
+    .playlist-title {
+        color: white;
+        font-size: 1.1em;
+        font-weight: bold;
+        margin: 0 0 8px 0;
+    }
+
+    .playlist-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        color: rgba(255,255,255,0.7);
+        font-size: 0.85em;
+    }
+</style>

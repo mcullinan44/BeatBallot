@@ -1,10 +1,12 @@
 ﻿@page "/jam"
-@using Entertainer.Models
-@using Entertainer.Services
+@using BeatBallot.Models
+@using BeatBallot.Services
+@using BeatBallot.Web.Components
+
 @using Microsoft.AspNetCore.SignalR.Client
 @using Newtonsoft.Json
 @using SpotifyAPI.Web
-@using TheEntertainer.Components
+@using BeatBallot.Models
 @inject NavigationManager Navigation
 @inject SpotifyService Spotify
 @inject IConfiguration Configuration
@@ -156,7 +158,7 @@
     private Paging<FullPlaylist> _playlist = new();
     private Paging<PlaylistTrack<IPlayableItem>> _playlistSongs = new();
     private List<FullTrack> _trackForPlaylist = [];
-    private readonly Entertainer.Models.Jam _jam = new(new DeeJayUser("Matt"));
+    private readonly BeatBallot.Models.Jam _jam = new(new DeeJayUser("Matt"));
     private JamPlaylist _jamPlaylist;
     private HubConnection _hubConnection;
     private Guid _jamId;

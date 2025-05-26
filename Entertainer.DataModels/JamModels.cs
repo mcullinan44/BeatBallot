@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using SpotifyAPI.Web;
 
-namespace Entertainer.Models
+namespace BeatBallot.Models
 {
     public class Jam
     {

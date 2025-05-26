@@ -1,0 +1,229 @@
+﻿@* VotePage.razor *@
+@page "/vote/{SessionId}"
+@layout MainLayout
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+@using System.ComponentModel.DataAnnotations
+@using BeatBallot.Web.Components.Vote
+@using BeatBallot.Web.Shared
+
+
+<div class="vote-container">
+    <HeaderComponent />
+    
+    <NowPlayingComponent CurrentSong="@currentSong.Title"
+                        CurrentArtist="@currentSong.Artist"
+                        CurrentTime="@currentSong.CurrentTime"
+                        TotalTime="@currentSong.TotalTime"
+                        ProgressPercentage="@currentSong.ProgressPercentage" />
+    
+    <VotingSectionComponent Songs="@availableSongs"
+                           VotesRemaining="@userVotesRemaining"
+                           OnVote="@HandleVote"
+                           OnVotePurchase="@HandleVotePurchase" />
+    
+    <LiveStatsComponent TotalVotes="@GetTotalVotes()"
+                       ActiveVoters="@activeVoters"
+                       SongsPlayed="@songsPlayed" />
+</div>
+
+@if (showSuccessMessage)
+{
+    <div class="success-message">
+        @successMessageText
+    </div>
+}
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+    
+    private HubConnection? _hubConnection;
+    private int userVotesRemaining = 10;
+    private int activeVoters = 24;
+    private int songsPlayed = 156;
+    private bool showSuccessMessage = false;
+    private string successMessageText = "";
+
+    private CurrentSongModel currentSong = new()
+    {
+        Title = "Levitating",
+        Artist = "Dua Lipa",
+        CurrentTime = "2:43",
+        TotalTime = "4:12",
+        ProgressPercentage = 65
+    };
+
+    private List<SongListComponent.SongModel> availableSongs = new()
+    {
+        new() { Id = 1, Title = "Blinding Lights", Artist = "The Weeknd", VoteCount = 23, UserVoteCount = 0 },
+        new() { Id = 2, Title = "Don't Start Now", Artist = "Dua Lipa", VoteCount = 18, UserVoteCount = 0 },
+        new() { Id = 3, Title = "As It Was", Artist = "Harry Styles", VoteCount = 31, UserVoteCount = 0 },
+        new() { Id = 4, Title = "Good 4 U", Artist = "Olivia Rodrigo", VoteCount = 15, UserVoteCount = 0 },
+        new() { Id = 5, Title = "Watermelon Sugar", Artist = "Harry Styles", VoteCount = 12, UserVoteCount = 0 },
+        new() { Id = 6, Title = "Peaches", Artist = "Justin Bieber ft. Daniel Caesar", VoteCount = 8, UserVoteCount = 0 },
+        new() { Id = 7, Title = "Stay", Artist = "The Kid LAROI & Justin Bieber", VoteCount = 19, UserVoteCount = 0 },
+        new() { Id = 8, Title = "Heat Waves", Artist = "Glass Animals", VoteCount = 25, UserVoteCount = 0 },
+        new() { Id = 9, Title = "Industry Baby", Artist = "Lil Nas X & Jack Harlow", VoteCount = 14, UserVoteCount = 0 },
+        new() { Id = 10, Title = "Bad Habits", Artist = "Ed Sheeran", VoteCount = 11, UserVoteCount = 0 },
+        new() { Id = 11, Title = "Shivers", Artist = "Ed Sheeran", VoteCount = 7, UserVoteCount = 0 },
+        new() { Id = 12, Title = "Ghost", Artist = "Justin Bieber", VoteCount = 9, UserVoteCount = 0 },
+        new() { Id = 13, Title = "Fancy Like", Artist = "Walker Hayes", VoteCount = 6, UserVoteCount = 0 }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Validate session ID
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            // Redirect to error page or show invalid session message
+            return;
+        }
+
+        await LoadSessionData();
+        await ConfigureNotification();
+    }
+
+    private async Task LoadSessionData()
+    {
+        // TODO: Load session-specific data from your service
+        // var sessionData = await VotingService.GetSessionDataAsync(SessionId);
+        // availableSongs = sessionData.Songs;
+        // currentSong = sessionData.CurrentSong;
+    }
+
+    private async Task ConfigureNotification()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
+            .Build();
+        
+        await _hubConnection.StartAsync();
+        
+        // Join the specific DJ session group
+        await _hubConnection.SendAsync("JoinSession", SessionId);
+        
+        // Listen for session-specific updates
+        _hubConnection.On<string>("SendVoteToUsers", NotificationReceivedHandler);
+        _hubConnection.On<int, int>("UpdateSongVotes", UpdateSongVotes);
+        _hubConnection.On<string, string>("NotifyNewSong", UpdateCurrentSong);
+        _hubConnection.On<bool>("NotifyPlayPause", UpdatePlayPause);
+        _hubConnection.On("NotifyVotingStopped", HandleVotingStopped);
+        _hubConnection.On<int>("UpdateListenerCount", UpdateListenerCount);
+    }
+
+    private async Task HandleVote(SongListComponent.SongModel song)
+    {
+        if (userVotesRemaining > 0)
+        {
+            // Find the song in our list and update it
+            var songToUpdate = availableSongs.FirstOrDefault(s => s.Id == song.Id);
+            if (songToUpdate != null)
+            {
+                songToUpdate.VoteCount++;
+                songToUpdate.UserVoteCount++;
+                userVotesRemaining--;
+                
+                // Send vote update to specific session group
+                if (_hubConnection is not null)
+                {
+                    await _hubConnection.SendAsync("CastVote", SessionId, song.Id, songToUpdate.VoteCount);
+                }
+                
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleVotePurchase(OptionsMenuComponent.VotePackage package)
+    {
+        // Simulate purchase confirmation
+        userVotesRemaining += package.Votes;
+        
+        // Show success message
+        successMessageText = $"+{package.Votes} votes added!";
+        showSuccessMessage = true;
+        StateHasChanged();
+        
+        // Hide success message after 2 seconds
+        await Task.Delay(2000);
+        showSuccessMessage = false;
+        StateHasChanged();
+    }
+
+    private int GetTotalVotes()
+    {
+        return availableSongs.Sum(s => s.VoteCount);
+    }
+
+    // SignalR event handlers
+    private async Task NotificationReceivedHandler(string message)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateSongVotes(int songId, int newVoteCount)
+    {
+        var song = availableSongs.FirstOrDefault(s => s.Id == songId);
+        if (song != null)
+        {
+            song.VoteCount = newVoteCount;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task UpdateCurrentSong(string title, string artist)
+    {
+        currentSong.Title = title;
+        currentSong.Artist = artist;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdatePlayPause(bool isPlaying)
+    {
+        // Update UI to reflect play/pause state
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleVotingStopped()
+    {
+        // Show voting ended message and redirect or disable voting
+        await InvokeAsync(() =>
+        {
+            // Show "Voting has ended" message
+            StateHasChanged();
+        });
+    }
+
+    private async Task UpdateListenerCount(int count)
+    {
+        activeVoters = count;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            // Leave the session group before disposing
+            await _hubConnection.SendAsync("LeaveSession", SessionId);
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    public class CurrentSongModel
+    {
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public string CurrentTime { get; set; } = "";
+        public string TotalTime { get; set; } = "";
+        public double ProgressPercentage { get; set; }
+    }
+}
+
+<style>
+    /* Component-specific styles only */
+    .voting-wrapper {
+        position: relative;
+    }
+</style>

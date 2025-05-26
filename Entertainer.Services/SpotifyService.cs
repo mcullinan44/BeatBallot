@@ -1,13 +1,8 @@
-﻿using System.Formats.Asn1;
-using System.Runtime.CompilerServices;
-using SpotifyAPI.Web;
-using SpotifyAPI.Web.Http;
-using SpotifyAPI.Web.Auth;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
+using SpotifyAPI.Web;
 
-
-namespace Entertainer.Services
+namespace BeatBallot.Services
 {
     public class SpotifyService: ISpotifyService
     {

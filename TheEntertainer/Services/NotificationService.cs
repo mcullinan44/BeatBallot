@@ -1,11 +1,8 @@
-﻿using Entertainer.Models;
+﻿using BeatBallot.Models;
 using Microsoft.AspNetCore.SignalR;
-using Swan.Formatters;
-using System;
 using Newtonsoft.Json;
 
-
-namespace TheEntertainer.Services
+namespace BeatBallot.Web.Services
 {
     public class NotificationService
     {
@@ -21,9 +18,10 @@ namespace TheEntertainer.Services
             string jsonString = JsonConvert.SerializeObject(notification);
             VoteTarget voteTarget = jam.VoteTargets.FirstOrDefault(i => i.ExternalTrackUri == notification.ExternalTrackUri);
             voteTarget.TotalVotes += notification.Value;
-            await _hubContext.Clients.All.SendAsync("SendVoteToHost", jsonString);
+
             await _hubContext.Clients.All.SendAsync("SendVoteToUsers", jsonString);
         }
 
     }
+
 }

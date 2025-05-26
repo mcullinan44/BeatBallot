@@ -1,4 +1,4 @@
-﻿namespace TheEntertainer.Services
+﻿namespace BeatBallot.Web.Services
 {
 
     public interface ILocalStorageService

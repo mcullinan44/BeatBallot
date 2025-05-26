@@ -1,0 +1,180 @@
+﻿@* OptionsMenuComponent.razor *@
+
+<div class="options-menu @(IsVisible ? "active" : "")" @onclick="HandleBackdropClick">
+    <div class="options-content" @onclick:stopPropagation="true">
+        <button class="close-btn" @onclick="CloseOptions">×</button>
+        <div class="options-header">
+            <div class="options-title">Vote Options</div>
+        </div>
+
+        <div class="current-votes">
+            <div class="current-votes-number">@CurrentVotes</div>
+            <div class="current-votes-label">Votes Remaining</div>
+        </div>
+
+        @foreach (var package in VotePackages)
+        {
+            <div class="vote-package" @onclick="() => PurchaseVotes(package)">
+                <div class="package-header">
+                    <div class="package-votes">+@package.Votes Votes</div>
+                    <div class="package-price">$@package.Price.ToString("F2")</div>
+                </div>
+                <div class="package-description">@package.Description</div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public int CurrentVotes { get; set; } = 10;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<VotePackage> OnPurchase { get; set; }
+
+    private List<VotePackage> VotePackages = new()
+    {
+        new VotePackage { Votes = 5, Price = 1.99m, Description = "Perfect for a few more song requests" },
+        new VotePackage { Votes = 15, Price = 4.99m, Description = "Most popular - Great value pack" },
+        new VotePackage { Votes = 30, Price = 8.99m, Description = "Ultimate pack - Control the playlist!" }
+    };
+
+    private async Task CloseOptions()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        await CloseOptions();
+    }
+
+    private async Task PurchaseVotes(VotePackage package)
+    {
+        await OnPurchase.InvokeAsync(package);
+    }
+
+    public class VotePackage
+    {
+        public int Votes { get; set; }
+        public decimal Price { get; set; }
+        public string Description { get; set; } = "";
+    }
+}
+
+<style>
+    .options-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(10px);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+        .options-menu.active {
+            display: flex;
+        }
+
+    .options-content {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 350px;
+        width: 90%;
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        position: relative;
+    }
+
+    .options-header {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+
+    .options-title {
+        color: white;
+        font-size: 1.5em;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5em;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+    .current-votes {
+        background: rgba(243,156,18,0.2);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .current-votes-number {
+        color: #f39c12;
+        font-size: 2em;
+        font-weight: bold;
+    }
+
+    .current-votes-label {
+        color: white;
+        margin-top: 5px;
+    }
+
+    .vote-package {
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+        .vote-package:hover {
+            border-color: #f39c12;
+            background: rgba(255,255,255,0.1);
+        }
+
+    .package-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .package-votes {
+        color: #f39c12;
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+
+    .package-price {
+        color: white;
+        font-size: 1.1em;
+        font-weight: bold;
+    }
+
+    .package-description {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+    }
+</style>

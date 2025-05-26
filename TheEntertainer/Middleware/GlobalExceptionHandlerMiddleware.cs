@@ -1,4 +1,4 @@
-﻿namespace TheEntertainer.Middleware
+﻿namespace BeatBallot.Web.Middleware
 {
     public class GlobalExceptionHandlerMiddleware
     {

@@ -1,12 +1,7 @@
-﻿using Entertainer.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using BeatBallot.Models;
 using Dapper;
 
-namespace Entertainer.Data
+namespace BeatBallot.Data
 {
     public class JamPlaylistRepository
     {

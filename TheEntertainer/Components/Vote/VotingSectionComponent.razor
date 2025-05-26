@@ -1,0 +1,49 @@
+﻿@* VotingSectionComponent.razor *@
+
+<div class="voting-wrapper">
+    <SongListComponent Songs="@Songs" 
+                       VotesRemaining="@VotesRemaining"
+                       OnSongVote="@HandleSongVote"
+                       OnOptionsRequested="@ShowOptions" />
+    
+    <OptionsMenuComponent IsVisible="@ShowOptionsMenu"
+                          CurrentVotes="@VotesRemaining"
+                          OnClose="@HideOptions"
+                          OnPurchase="@HandlePurchase" />
+</div>
+
+@code {
+    [Parameter] public List<SongListComponent.SongModel> Songs { get; set; } = new();
+    [Parameter] public int VotesRemaining { get; set; } = 10;
+    [Parameter] public EventCallback<SongListComponent.SongModel> OnVote { get; set; }
+    [Parameter] public EventCallback<OptionsMenuComponent.VotePackage> OnVotePurchase { get; set; }
+
+    private bool ShowOptionsMenu = false;
+
+    private async Task HandleSongVote(SongListComponent.SongModel song)
+    {
+        await OnVote.InvokeAsync(song);
+    }
+
+    private void ShowOptions()
+    {
+        ShowOptionsMenu = true;
+    }
+
+    private void HideOptions()
+    {
+        ShowOptionsMenu = false;
+    }
+
+    private async Task HandlePurchase(OptionsMenuComponent.VotePackage package)
+    {
+        await OnVotePurchase.InvokeAsync(package);
+        ShowOptionsMenu = false;
+    }
+}
+
+<style>
+    .voting-wrapper {
+        position: relative;
+    }
+</style>

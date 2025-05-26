@@ -1,0 +1,121 @@
+﻿@* SongListComponent.razor *@
+
+<div class="voting-section">
+    <div class="section-title">
+        <span>Vote for Next Track</span>
+        <div style="display: flex; align-items: center;">
+            <div class="votes-remaining">
+                <span>🗳️</span>
+                <span>@VotesRemaining</span>
+            </div>
+            <button class="options-btn" @onclick="OpenOptions">⚙️</button>
+        </div>
+    </div>
+
+    <div class="song-container">
+        @foreach (var song in Songs)
+        {
+            <SongComponent SongTitle="@song.Title"
+                           ArtistName="@song.Artist"
+                           VoteCount="@song.VoteCount"
+                           UserVoteCount="@song.UserVoteCount"
+                           VotesRemaining="@VotesRemaining"
+                           OnVote="@(() => HandleVote(song))" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<SongModel> Songs { get; set; } = new();
+    [Parameter] public int VotesRemaining { get; set; } = 10;
+    [Parameter] public EventCallback<SongModel> OnSongVote { get; set; }
+    [Parameter] public EventCallback OnOptionsRequested { get; set; }
+
+    private async Task HandleVote(SongModel song)
+    {
+        await OnSongVote.InvokeAsync(song);
+    }
+
+    private async Task OpenOptions()
+    {
+        await OnOptionsRequested.InvokeAsync();
+    }
+
+    public class SongModel
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public int VoteCount { get; set; }
+        public int UserVoteCount { get; set; }
+    }
+}
+
+<style>
+    .voting-section {
+        padding: 20px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+        .voting-section::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .voting-section::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        .voting-section::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #e74c3c, #f39c12);
+            border-radius: 3px;
+        }
+
+            .voting-section::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(45deg, #c0392b, #d68910);
+            }
+
+    .section-title {
+        color: white;
+        font-size: 1.3em;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: bold;
+    }
+
+    .votes-remaining {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .options-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.8em;
+        transition: all 0.3s ease;
+        margin-left: 10px;
+    }
+
+        .options-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+
+    .song-container {
+        /* Container for all song components */
+    }
+</style>

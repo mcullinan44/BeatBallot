@@ -1,0 +1,790 @@
+﻿@* DJPlaylistsComponent.razor *@
+@page "/dj/playlists"
+@using BeatBallot.Web.Shared
+@layout DJLayoutComponent
+
+@inject NavigationManager Navigation
+
+<div class="playlists-page">
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">My Playlists</h1>
+            <p class="page-subtitle">Manage your Spotify playlists and create voting experiences</p>
+        </div>
+        <div class="header-actions">
+            <button class="refresh-btn @(isRefreshing ? "loading" : "")" @onclick="RefreshFromSpotify" disabled="@isRefreshing">
+                @if (isRefreshing)
+                {
+                    <span class="loading-spinner"></span>
+                    <span>Syncing...</span>
+                }
+                else
+                {
+                    <span class="btn-icon">🔄</span>
+                    <span>Refresh from Spotify</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <div class="playlists-grid">
+        @foreach (var playlist in playlists)
+        {
+            <div class="playlist-card @(playlist.IsLive ? "live" : "")">
+                @if (playlist.IsLive)
+                {
+                    <div class="live-indicator">
+                        <span class="live-dot"></span>
+                        <span>LIVE</span>
+                    </div>
+                }
+
+                <div class="playlist-cover">
+                    @if (!string.IsNullOrEmpty(playlist.CoverImage))
+                    {
+                        <img src="@playlist.CoverImage" alt="@playlist.Name" class="cover-image" />
+                    }
+                    else
+                    {
+                        <div class="cover-placeholder">
+                            <span class="cover-icon">🎵</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="playlist-info">
+                    <h3 class="playlist-name">@playlist.Name</h3>
+                    <p class="playlist-description">@playlist.Description</p>
+
+                    <div class="playlist-stats">
+                        <div class="stat">
+                            <span class="stat-icon">🎵</span>
+                            <span>@playlist.TrackCount tracks</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-icon">🗳️</span>
+                            <span>@playlist.TotalVotes votes</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-icon">👥</span>
+                            <span>@playlist.ListenerCount listeners</span>
+                        </div>
+                    </div>
+
+                    <div class="playlist-actions">
+                        @if (playlist.IsLive)
+                        {
+                            <button class="action-btn manage-btn" @onclick="() => ManagePlaylist(playlist.Id)">
+                                <span class="btn-icon">⚙️</span>
+                                <span>Manage Live</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="action-btn go-live-btn" @onclick="() => HandleGoLive(playlist.Id)">
+                                <span class="btn-icon">🎧</span>
+                                <span>Go Live</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="playlist-updated">
+                    <span>Updated @playlist.LastUpdated.ToString("MMM dd, yyyy")</span>
+                </div>
+            </div>
+        }
+
+        <!-- Add New Playlist Card - REMOVED -->
+        <!-- Playlists are now synced from Spotify -->
+    </div>
+
+    <!-- Confirmation Modal for Switching Live Playlists -->
+    @if (showSwitchConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelSwitch">
+            <div class="confirmation-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Switch Live Playlist?</h3>
+                    <button class="close-modal-btn" @onclick="CancelSwitch">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="warning-icon">⚠️</div>
+                    <p class="warning-message">
+                        Switching live playlists will invalidate ballot results. You will have to start over.
+                    </p>
+                    <p class="current-live">
+                        Currently live: <strong>@GetCurrentLivePlaylistName()</strong>
+                    </p>
+                    <p class="switching-to">
+                        Switching to: <strong>@GetPlaylistName(pendingSwitchPlaylistId)</strong>
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="cancel-btn" @onclick="CancelSwitch">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="confirm-btn" @onclick="ConfirmSwitch">
+                        <span>Confirm Switch</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!playlists.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🎵</div>
+            <h2>No playlists found</h2>
+            <p>Connect to Spotify and refresh to sync your playlists, or create playlists in your Spotify app.</p>
+            <button class="refresh-btn" @onclick="RefreshFromSpotify">
+                <span class="btn-icon">🔄</span>
+                <span>Refresh from Spotify</span>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isRefreshing = false;
+    private bool showSwitchConfirmation = false;
+    private int pendingSwitchPlaylistId = 0;
+    private DateTime lastRefresh = DateTime.Now.AddMinutes(-30);
+
+    private List<PlaylistModel> playlists = new()
+    {
+        new()
+        {
+            Id = 1,
+            Name = "Friday Night Vibes",
+            Description = "Perfect mix for weekend parties",
+            TrackCount = 45,
+            TotalVotes = 1247,
+            ListenerCount = 89,
+            IsLive = true, // Only one can be live
+            LastUpdated = DateTime.Now.AddHours(-2),
+            CoverImage = "",
+            SpotifyId = "37i9dQZF1DXcBWIGoYBM5M"
+        },
+        new()
+        {
+            Id = 2,
+            Name = "Chill Lounge",
+            Description = "Relaxed beats for intimate settings",
+            TrackCount = 32,
+            TotalVotes = 856,
+            ListenerCount = 0,
+            IsLive = false,
+            LastUpdated = DateTime.Now.AddDays(-1),
+            CoverImage = "",
+            SpotifyId = "37i9dQZF1DX0XUsuxWHRQd"
+        },
+        new()
+        {
+            Id = 3,
+            Name = "Dance Floor Hits",
+            Description = "High-energy tracks to keep the crowd moving",
+            TrackCount = 67,
+            TotalVotes = 2134,
+            ListenerCount = 0, // Not live anymore
+            IsLive = false,
+            LastUpdated = DateTime.Now.AddHours(-4),
+            CoverImage = "",
+            SpotifyId = "37i9dQZF1DX0XUfTFmNBRM"
+        }
+    };
+
+    private async Task RefreshFromSpotify()
+    {
+        if (isRefreshing) return;
+
+        isRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            // TODO: Implement Spotify playlist sync
+            // var spotifyPlaylists = await SpotifyService.GetUserPlaylistsAsync();
+            // playlists = await PlaylistService.SyncWithSpotifyAsync(spotifyPlaylists);
+
+            // Simulate API call
+            await Task.Delay(2000);
+
+            lastRefresh = DateTime.Now;
+
+            // Show success message or update UI
+            // You could add a toast notification here
+        }
+        catch (Exception ex)
+        {
+            // Handle error - show error message to user
+            Console.WriteLine($"Error refreshing playlists: {ex.Message}");
+        }
+        finally
+        {
+            isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleGoLive(int playlistId)
+    {
+        // Check if there's already a live playlist
+        var currentLivePlaylist = playlists.FirstOrDefault(p => p.IsLive);
+
+        if (currentLivePlaylist != null && currentLivePlaylist.Id != playlistId)
+        {
+            // Show confirmation modal
+            pendingSwitchPlaylistId = playlistId;
+            showSwitchConfirmation = true;
+            StateHasChanged();
+        }
+        else
+        {
+            // No live playlist or same playlist, go live directly
+            await GoLive(playlistId);
+        }
+    }
+
+    private async Task ConfirmSwitch()
+    {
+        showSwitchConfirmation = false;
+
+        // Stop the current live playlist
+        var currentLive = playlists.FirstOrDefault(p => p.IsLive);
+        if (currentLive != null)
+        {
+            currentLive.IsLive = false;
+            currentLive.ListenerCount = 0;
+            // TODO: await PlaylistService.StopLiveAsync(currentLive.Id);
+        }
+
+        // Start the new live playlist
+        await GoLive(pendingSwitchPlaylistId);
+
+        pendingSwitchPlaylistId = 0;
+        StateHasChanged();
+    }
+
+    private void CancelSwitch()
+    {
+        showSwitchConfirmation = false;
+        pendingSwitchPlaylistId = 0;
+        StateHasChanged();
+    }
+
+    private string GetCurrentLivePlaylistName()
+    {
+        return playlists.FirstOrDefault(p => p.IsLive)?.Name ?? "";
+    }
+
+    private string GetPlaylistName(int playlistId)
+    {
+        return playlists.FirstOrDefault(p => p.Id == playlistId)?.Name ?? "";
+    }
+
+    private async Task ManagePlaylist(int playlistId)
+    {
+        // TODO: Get or create session for this playlist
+        // var sessionId = await SessionService.GetOrCreateSessionAsync(playlistId);
+
+        // For demo, generate a session ID (in production, get from database)
+        var sessionId = GenerateSessionId();
+
+        // Navigate to session management page using session ID
+        Navigation.NavigateTo($"/dj/session/{sessionId}/manage");
+    }
+
+    private string GenerateSessionId()
+    {
+        // Generate a long random string for the session
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, 32)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    private async Task GoLive(int playlistId)
+    {
+        var playlist = playlists.FirstOrDefault(p => p.Id == playlistId);
+        if (playlist != null)
+        {
+            // Ensure only one playlist is live at a time
+            foreach (var p in playlists)
+            {
+                p.IsLive = false;
+                p.ListenerCount = 0;
+            }
+
+            // Set the selected playlist as live
+            playlist.IsLive = true;
+            playlist.ListenerCount = 1; // DJ is the first listener
+
+            StateHasChanged();
+
+            // TODO: Backend integration
+            // await PlaylistService.GoLiveAsync(playlistId);
+            // NavigationManager.NavigateTo($"/dj/playlists/{playlistId}/live");
+        }
+    }
+
+    public class PlaylistModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int TrackCount { get; set; }
+        public int TotalVotes { get; set; }
+        public int ListenerCount { get; set; }
+        public bool IsLive { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public string CoverImage { get; set; } = "";
+        public string SpotifyId { get; set; } = ""; // Spotify playlist ID
+    }
+}
+
+<style>
+    .playlists-page {
+        padding: 0;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .header-content h1 {
+        color: white;
+        font-size: 2.5em;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .header-content p {
+        color: rgba(255,255,255,0.7);
+        font-size: 1.1em;
+        margin: 0;
+    }
+
+    .create-btn {
+        background: linear-gradient(45deg, #1db954, #1ed760);
+        border: none;
+        border-radius: 12px;
+        padding: 15px 25px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1em;
+        box-shadow: 0 4px 15px rgba(29,185,84,0.3);
+    }
+
+        .create-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(29,185,84,0.4);
+        }
+
+    .refresh-btn {
+        background: linear-gradient(45deg, #1db954, #1ed760);
+        border: none;
+        border-radius: 12px;
+        padding: 15px 25px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1em;
+        box-shadow: 0 4px 15px rgba(29,185,84,0.3);
+    }
+
+        .refresh-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(29,185,84,0.4);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .refresh-btn.loading {
+            animation: pulse 2s infinite;
+        }
+
+    .loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .btn-icon {
+        font-size: 1.1em;
+    }
+
+    .playlists-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+    }
+
+    .playlist-card {
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 25px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .playlist-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .playlist-card.live {
+            border-color: #e74c3c;
+            box-shadow: 0 0 20px rgba(231,76,60,0.2);
+        }
+
+        .playlist-card.add-new {
+            border: 2px dashed rgba(255,255,255,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+            .playlist-card.add-new:hover {
+                border-color: #f39c12;
+                background: rgba(243,156,18,0.1);
+            }
+
+    .add-content {
+        text-align: center;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .add-icon {
+        font-size: 3em;
+        margin-bottom: 15px;
+        color: #f39c12;
+    }
+
+    .add-content h3 {
+        color: white;
+        margin-bottom: 10px;
+        font-size: 1.3em;
+    }
+
+    .add-content p {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.9em;
+    }
+
+    .live-indicator {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #e74c3c;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+    .playlist-cover {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        border: 2px solid rgba(255,255,255,0.2);
+    }
+
+    .cover-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cover-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cover-icon {
+        font-size: 2em;
+        color: white;
+    }
+
+    .playlist-name {
+        color: white;
+        font-size: 1.4em;
+        font-weight: bold;
+        margin: 0 0 8px 0;
+    }
+
+    .playlist-description {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        margin: 0 0 20px 0;
+        line-height: 1.4;
+    }
+
+    .playlist-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255,255,255,0.8);
+        font-size: 0.85em;
+    }
+
+    .stat-icon {
+        width: 16px;
+        text-align: center;
+    }
+
+    .playlist-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
+
+    .action-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: rgba(255,255,255,0.8);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85em;
+        flex: 1;
+    }
+
+        .action-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+    .go-live-btn:hover {
+        background: rgba(46,204,113,0.2);
+        border-color: #2ecc71;
+        color: #2ecc71;
+    }
+
+    .manage-btn {
+        background: rgba(231,76,60,0.2);
+        border-color: #e74c3c;
+        color: #e74c3c;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(10px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .confirmation-modal {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: rgba(231,76,60,0.1);
+        border-bottom: 1px solid rgba(231,76,60,0.2);
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        color: #e74c3c;
+        font-size: 1.3em;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .close-modal-btn {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        font-size: 1.5em;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s ease;
+    }
+
+        .close-modal-btn:hover {
+            color: white;
+        }
+
+    .modal-content {
+        padding: 30px;
+        text-align: center;
+    }
+
+    .warning-icon {
+        font-size: 3em;
+        margin-bottom: 20px;
+        color: #f39c12;
+    }
+
+    .warning-message {
+        color: white;
+        font-size: 1.1em;
+        font-weight: 600;
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
+
+    .current-live, .switching-to {
+        color: rgba(255,255,255,0.8);
+        margin-bottom: 15px;
+        font-size: 0.95em;
+    }
+
+        .current-live strong, .switching-to strong {
+            color: white;
+            font-weight: bold;
+        }
+
+    .modal-actions {
+        display: flex;
+        gap: 15px;
+        padding: 0 30px 30px 30px;
+    }
+
+    .cancel-btn, .confirm-btn {
+        flex: 1;
+        padding: 15px;
+        border: none;
+        border-radius: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1em;
+    }
+
+    .cancel-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+    }
+
+        .cancel-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+    .confirm-btn {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        color: white;
+        box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+    }
+
+        .confirm-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+        }
+
+    .playlist-updated {
+        color: rgba(255,255,255,0.5);
+        font-size: 0.8em;
+        text-align: right;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .empty-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.7;
+    }
+
+    .empty-state h2 {
+        color: white;
+        font-size: 2em;
+        margin-bottom: 15px;
+    }
+
+    .empty-state p {
+        font-size: 1.1em;
+        margin-bottom: 30px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+</style>

@@ -1,8 +1,9 @@
-﻿using Microsoft.JSInterop;
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text;
+using Microsoft.JSInterop;
 
-namespace TheEntertainer.Services
+
+namespace BeatBallot.Web.Services
 {
     public class LocalStorageService : ILocalStorageService
     {

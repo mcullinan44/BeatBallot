@@ -1,7 +1,7 @@
-﻿using Dapper;
-using Entertainer.Models;
+﻿using BeatBallot.Models;
+using Dapper;
 
-namespace Entertainer.Data
+namespace BeatBallot.Data
 {
     public class JamRepository
     {

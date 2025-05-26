@@ -1,0 +1,1036 @@
+﻿@* ManageLiveComponent.razor *@
+@page "/dj/session/{SessionId}/manage"
+@layout DJLayoutComponent
+@using BeatBallot.Web.Shared
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<div class="manage-live-page">
+    <div class="page-header">
+        <div class="header-content">
+            <div class="back-nav">
+                <button class="back-btn" @onclick="GoBack">
+                    <span class="back-icon">←</span>
+                    <span>Back to Playlists</span>
+                </button>
+            </div>
+            <div class="session-info">
+                <h1 class="page-title">Managing Live Session</h1>
+                <div class="session-details">
+                    <div class="playlist-name">
+                        <span class="label">Playlist:</span>
+                        <span class="value">@currentPlaylist?.Name</span>
+                    </div>
+                    <div class="session-start">
+                        <span class="label">Started:</span>
+                        <span class="value">@sessionStartTime.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
+                    <div class="session-duration">
+                        <span class="label">Duration:</span>
+                        <span class="value" id="duration-display">@GetSessionDuration()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="control-btn sort @(isSortedByVotes ? "active" : "")" @onclick="SortByVotes">
+                <span class="btn-icon">🔄</span>
+                <span>Sort by Votes</span>
+            </button>
+            <button class="stop-btn" @onclick="ShowStopConfirmation">
+                <span class="btn-icon">⏹️</span>
+                <span>Stop Voting</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- QR Code Section for Voting URL -->
+    <div class="qr-code-section">
+        <div class="qr-info">
+            <h3 class="qr-title">Audience Voting Setup</h3>
+            <p class="qr-description">Copy this URL and share in a browser tab so your listeners can scan the QR Code and begin voting.</p>
+            <div class="voting-url">
+                <span class="url-label">QR Display URL:</span>
+                <a href="@GetQRDisplayUrl()" target="_blank" class="voting-link">@GetQRDisplayUrl()</a>
+                <button class="copy-btn" @onclick="CopyQRDisplayUrl" title="Copy URL">
+                    <span class="copy-icon">📋</span>
+                </button>
+            </div>
+        </div>
+        <div class="qr-placeholder">
+            <div class="qr-mock">
+                <div class="qr-text">QR DISPLAY</div>
+                <div class="session-id">Session: @SessionId.Substring(0, 8)...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="live-stats">
+        <div class="stat-card">
+            <div class="stat-icon">🗳️</div>
+            <div class="stat-content">
+                <div class="stat-number">@totalVotes</div>
+                <div class="stat-label">Total Votes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <div class="stat-number">@activeListeners</div>
+                <div class="stat-label">Active Listeners</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🎵</div>
+            <div class="stat-content">
+                <div class="stat-number">@currentPlaylist?.TrackCount</div>
+                <div class="stat-label">Total Songs</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-content">
+                <div class="stat-number">@votesPerMinute</div>
+                <div class="stat-label">Votes/Min</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="songs-section">
+        <div class="songs-header">
+            <h2 class="section-title">Songs in Playlist</h2>
+            <div class="sort-info">
+                @if (isSortedByVotes)
+                {
+                    <span class="sort-indicator">📊 Sorted by votes (highest first)</span>
+                }
+                else
+                {
+                    <span class="sort-indicator">📝 Original playlist order</span>
+                }
+            </div>
+        </div>
+
+        <div class="songs-list">
+            @foreach (var song in GetDisplaySongs())
+            {
+                <div class="song-item @(song.Id == currentlyPlayingSongId ? "currently-playing" : "")">
+                    <div class="song-position">
+                        @if (song.Id == currentlyPlayingSongId)
+                        {
+                            <span class="playing-indicator">♪</span>
+                        }
+                        else
+                        {
+                            <span class="position-number">@(GetDisplaySongs().ToList().IndexOf(song) + 1)</span>
+                        }
+                    </div>
+
+                    <div class="song-info">
+                        <div class="song-title">@song.Title</div>
+                        <div class="song-artist">@song.Artist</div>
+                    </div>
+
+                    <div class="song-stats">
+                        <div class="vote-count">
+                            <span class="vote-number">@song.VoteCount</span>
+                            <span class="vote-label">votes</span>
+                        </div>
+                        @if (song.VoteCount > 0)
+                        {
+                            <div class="vote-percentage">
+                                @(Math.Round((double)song.VoteCount / totalVotes * 100, 1))%
+                            </div>
+                        }
+                    </div>
+
+                    <div class="song-actions">
+                        @if (song.Id == currentlyPlayingSongId)
+                        {
+                            <button class="play-btn active" disabled>
+                                <span class="btn-icon">🎵</span>
+                                <span>Now Playing</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="play-btn" @onclick="() => PlaySong(song.Id)">
+                                <span class="btn-icon">▶️</span>
+                                <span>Play Now</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Stop Voting Confirmation Modal -->
+    @if (showStopConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelStop">
+            <div class="confirmation-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Stop Live Voting?</h3>
+                    <button class="close-modal-btn" @onclick="CancelStop">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="warning-icon">⚠️</div>
+                    <p class="warning-message">
+                        Are you sure? Listeners will have to scan a new QR code to resume voting on a new session.
+                    </p>
+                    <p class="session-summary">
+                        Session has been running for <strong>@GetSessionDuration()</strong> with <strong>@totalVotes total votes</strong>.
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="cancel-btn" @onclick="CancelStop">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="confirm-btn stop" @onclick="ConfirmStop">
+                        <span>Stop Voting</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private HubConnection? _hubConnection;
+    private PlaylistModel? currentPlaylist;
+    private List<SongModel> songs = new();
+    private DateTime sessionStartTime = DateTime.Now.AddHours(-2);
+    private bool isPlaying = true;
+    private bool isSortedByVotes = false;
+    private bool showStopConfirmation = false;
+    private int currentlyPlayingSongId = 1;
+    private int totalVotes = 0;
+    private int activeListeners = 23;
+    private int votesPerMinute = 15;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Validate session ID
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            Navigation.NavigateTo("/dj/playlists");
+            return;
+        }
+
+        await LoadSessionData();
+        await ConfigureSignalR();
+        StartDurationTimer();
+    }
+
+    private async Task LoadSessionData()
+    {
+        // TODO: Load session data from your service using SessionId
+        // var sessionData = await SessionService.GetSessionByIdAsync(SessionId);
+        // currentPlaylist = sessionData.Playlist;
+        // songs = sessionData.Songs;
+        // sessionStartTime = sessionData.StartTime;
+
+        // Sample data for demo
+        currentPlaylist = new PlaylistModel
+        {
+            Id = 1,
+            Name = "Friday Night Vibes",
+            TrackCount = 15
+        };
+
+        songs = new List<SongModel>
+        {
+            new() { Id = 1, Title = "Blinding Lights", Artist = "The Weeknd", VoteCount = 45 },
+            new() { Id = 2, Title = "Levitating", Artist = "Dua Lipa", VoteCount = 38 },
+            new() { Id = 3, Title = "Good 4 U", Artist = "Olivia Rodrigo", VoteCount = 32 },
+            new() { Id = 4, Title = "Stay", Artist = "The Kid LAROI & Justin Bieber", VoteCount = 28 },
+            new() { Id = 5, Title = "Heat Waves", Artist = "Glass Animals", VoteCount = 24 },
+            new() { Id = 6, Title = "Industry Baby", Artist = "Lil Nas X", VoteCount = 19 },
+            new() { Id = 7, Title = "Bad Habits", Artist = "Ed Sheeran", VoteCount = 15 },
+            new() { Id = 8, Title = "Peaches", Artist = "Justin Bieber", VoteCount = 12 },
+            new() { Id = 9, Title = "Watermelon Sugar", Artist = "Harry Styles", VoteCount = 8 },
+            new() { Id = 10, Title = "Shivers", Artist = "Ed Sheeran", VoteCount = 5 }
+        };
+
+        totalVotes = songs.Sum(s => s.VoteCount);
+    }
+
+    private async Task ConfigureSignalR()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
+            .Build();
+
+        await _hubConnection.StartAsync();
+
+        // Join the DJ to their specific session group using the SessionId
+        await _hubConnection.SendAsync("JoinDJSession", SessionId, currentPlaylist?.Id ?? 0);
+
+        // Listen for session-specific vote updates from participants
+        _hubConnection.On<int, int>("UpdateSongVotes", async (songId, newVoteCount) =>
+        {
+            await UpdateSongVotes(songId, newVoteCount);
+        });
+
+        // Listen for listener count updates for this session
+        _hubConnection.On<int>("UpdateListenerCount", async (count) =>
+        {
+            activeListeners = count;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        // Listen for new participants joining the session
+        _hubConnection.On<string>("ParticipantJoined", async (participantInfo) =>
+        {
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task UpdateSongVotes(int songId, int newVoteCount)
+    {
+        var song = songs.FirstOrDefault(s => s.Id == songId);
+        if (song != null)
+        {
+            song.VoteCount = newVoteCount;
+            totalVotes = songs.Sum(s => s.VoteCount);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetQRDisplayUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/qr/{SessionId}";
+    }
+
+    private async Task CopyQRDisplayUrl()
+    {
+        var url = GetQRDisplayUrl();
+        // TODO: Implement clipboard copy
+        // await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        Console.WriteLine($"Copied to clipboard: {url}");
+    }
+
+    private IEnumerable<SongModel> GetDisplaySongs()
+    {
+        return isSortedByVotes
+            ? songs.OrderByDescending(s => s.VoteCount)
+            : songs;
+    }
+
+    private void SortByVotes()
+    {
+        isSortedByVotes = !isSortedByVotes;
+        StateHasChanged();
+    }
+
+    private async Task TogglePlayPause()
+    {
+        isPlaying = !isPlaying;
+
+        // TODO: Send command to music service
+        // await MusicService.TogglePlayPauseAsync(SessionId);
+
+        // Notify participants in this session about play/pause state
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.SendAsync("NotifySessionPlayPause", SessionId, isPlaying);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task PlaySong(int songId)
+    {
+        currentlyPlayingSongId = songId;
+        isPlaying = true;
+
+        // TODO: Send command to music service
+        // await MusicService.PlaySongAsync(SessionId, songId);
+
+        // Notify participants in this session about the new song
+        if (_hubConnection is not null)
+        {
+            var song = songs.FirstOrDefault(s => s.Id == songId);
+            await _hubConnection.SendAsync("NotifySessionNewSong", SessionId, song?.Title, song?.Artist);
+        }
+
+        StateHasChanged();
+    }
+
+    private void ShowStopConfirmation()
+    {
+        showStopConfirmation = true;
+    }
+
+    private void CancelStop()
+    {
+        showStopConfirmation = false;
+    }
+
+    private async Task ConfirmStop()
+    {
+        showStopConfirmation = false;
+
+        // TODO: Stop the live session using SessionId
+        // await SessionService.StopSessionAsync(SessionId);
+
+        // Notify participants in this session that voting has stopped
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.SendAsync("NotifySessionVotingStopped", SessionId);
+            await _hubConnection.SendAsync("LeaveDJSession", SessionId);
+        }
+
+        // Navigate back to playlists
+        Navigation.NavigateTo("/dj/playlists");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/dj/playlists");
+    }
+
+    private string GetSessionDuration()
+    {
+        var duration = DateTime.Now - sessionStartTime;
+        return $"{duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+    }
+
+    private void StartDurationTimer()
+    {
+        var timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.SendAsync("LeaveDJSession", SessionId);
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    public class PlaylistModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int TrackCount { get; set; }
+    }
+
+    public class SongModel
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public int VoteCount { get; set; }
+    }
+}
+
+<style>
+    .manage-live-page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 30px;
+        padding: 25px;
+        background: rgba(0,0,0,0.4);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .back-nav {
+        margin-bottom: 15px;
+    }
+
+    .back-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 10px;
+        padding: 10px 15px;
+        color: rgba(255,255,255,0.8);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9em;
+    }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateX(-3px);
+        }
+
+    .back-icon {
+        font-size: 1.2em;
+    }
+
+    .page-title {
+        color: white;
+        font-size: 2.2em;
+        font-weight: bold;
+        margin: 0 0 15px 0;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .session-details {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+
+        .session-details > div {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+    .label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .value {
+        color: white;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .control-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 12px;
+        padding: 12px 20px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+    }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.play {
+            border-color: #2ecc71;
+            color: #2ecc71;
+        }
+
+        .control-btn.pause {
+            border-color: #f39c12;
+            color: #f39c12;
+        }
+
+        .control-btn.sort.active {
+            background: rgba(52,152,219,0.2);
+            border-color: #3498db;
+            color: #3498db;
+        }
+
+    .stop-btn {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        border: none;
+        border-radius: 12px;
+        padding: 12px 20px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+    }
+
+        .stop-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+        }
+
+    /* QR Code Section */
+    .qr-code-section {
+        display: flex;
+        gap: 30px;
+        align-items: center;
+        background: rgba(0,0,0,0.3);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+        padding: 25px;
+        margin-bottom: 30px;
+    }
+
+    .qr-info {
+        flex: 1;
+    }
+
+    .qr-title {
+        color: white;
+        font-size: 1.3em;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+    }
+
+    .qr-description {
+        color: rgba(255,255,255,0.8);
+        margin: 0 0 20px 0;
+        font-size: 0.95em;
+    }
+
+    .voting-url {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255,255,255,0.05);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .url-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        white-space: nowrap;
+    }
+
+    .voting-link {
+        background: rgba(0,0,0,0.3);
+        color: #3498db;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85em;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+        .voting-link:hover {
+            background: rgba(52,152,219,0.2);
+            color: #2980b9;
+        }
+
+    .copy-btn {
+        background: rgba(52,152,219,0.2);
+        border: 1px solid rgba(52,152,219,0.3);
+        border-radius: 8px;
+        padding: 8px;
+        color: #3498db;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .copy-btn:hover {
+            background: rgba(52,152,219,0.3);
+            transform: scale(1.1);
+        }
+
+    .copy-icon {
+        font-size: 1.1em;
+    }
+
+    .qr-placeholder {
+        width: 150px;
+        height: 150px;
+        flex-shrink: 0;
+    }
+
+    .qr-mock {
+        width: 100%;
+        height: 100%;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid #333;
+        position: relative;
+    }
+
+    .qr-text {
+        font-weight: bold;
+        color: #333;
+        font-size: 0.9em;
+        margin-bottom: 10px;
+    }
+
+    .session-id {
+        font-size: 0.7em;
+        color: #666;
+        font-family: 'Courier New', monospace;
+    }
+
+    .live-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+
+    .stat-card {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 25px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+    .stat-icon {
+        font-size: 2.5em;
+        opacity: 0.8;
+    }
+
+    .stat-content {
+        flex: 1;
+    }
+
+    .stat-number {
+        color: #f39c12;
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .songs-section {
+        background: rgba(0,0,0,0.3);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+        overflow: hidden;
+    }
+
+    .songs-header {
+        padding: 25px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .section-title {
+        color: white;
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .sort-info {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+    }
+
+    .sort-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .songs-list {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .song-item {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px 25px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+    }
+
+        .song-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .song-item:last-child {
+            border-bottom: none;
+        }
+
+        .song-item.currently-playing {
+            background: rgba(46,204,113,0.1);
+            border-color: rgba(46,204,113,0.3);
+        }
+
+    .song-position {
+        width: 40px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .position-number {
+        color: rgba(255,255,255,0.6);
+        font-size: 1.1em;
+    }
+
+    .playing-indicator {
+        color: #2ecc71;
+        font-size: 1.3em;
+        animation: pulse 2s infinite;
+    }
+
+    .song-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .song-title {
+        color: white;
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .song-artist {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .song-stats {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        min-width: 80px;
+    }
+
+    .vote-count {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .vote-number {
+        color: #f39c12;
+        font-size: 1.5em;
+        font-weight: bold;
+    }
+
+    .vote-label {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.8em;
+    }
+
+    .vote-percentage {
+        color: rgba(255,255,255,0.5);
+        font-size: 0.8em;
+    }
+
+    .song-actions {
+        min-width: 120px;
+    }
+
+    .play-btn {
+        background: rgba(46,204,113,0.2);
+        border: 1px solid rgba(46,204,113,0.3);
+        border-radius: 8px;
+        padding: 8px 15px;
+        color: #2ecc71;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85em;
+        width: 100%;
+        justify-content: center;
+    }
+
+        .play-btn:hover:not(:disabled) {
+            background: rgba(46,204,113,0.3);
+            transform: translateY(-1px);
+        }
+
+        .play-btn.active {
+            background: rgba(46,204,113,0.3);
+            cursor: default;
+        }
+
+        .play-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(10px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .confirmation-modal {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: rgba(231,76,60,0.1);
+        border-bottom: 1px solid rgba(231,76,60,0.2);
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        color: #e74c3c;
+        font-size: 1.3em;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .close-modal-btn {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        font-size: 1.5em;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s ease;
+    }
+
+        .close-modal-btn:hover {
+            color: white;
+        }
+
+    .modal-content {
+        padding: 30px;
+        text-align: center;
+    }
+
+    .warning-icon {
+        font-size: 3em;
+        margin-bottom: 20px;
+        color: #e74c3c;
+    }
+
+    .warning-message {
+        color: white;
+        font-size: 1.1em;
+        font-weight: 600;
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
+
+    .session-summary {
+        color: rgba(255,255,255,0.8);
+        margin-bottom: 0;
+        font-size: 0.95em;
+    }
+
+        .session-summary strong {
+            color: white;
+            font-weight: bold;
+        }
+
+    .modal-actions {
+        display: flex;
+        gap: 15px;
+        padding: 0 30px 30px 30px;
+    }
+
+    .cancel-btn, .confirm-btn {
+        flex: 1;
+        padding: 15px;
+        border: none;
+        border-radius: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1em;
+    }
+
+    .cancel-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+    }
+
+        .cancel-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+    .confirm-btn.stop {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        color: white;
+        box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+    }
+
+        .confirm-btn.stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+        }
+</style>

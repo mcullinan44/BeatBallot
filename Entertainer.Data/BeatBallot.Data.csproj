@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Entertainer.DataModels\BeatBallot.Models.csproj" />
     <ProjectReference Include="..\Entertainer.DataModels\Entertainer.Models.csproj" />
   </ItemGroup>
 

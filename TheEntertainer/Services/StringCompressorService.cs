@@ -1,7 +1,7 @@
 ﻿using System.IO.Compression;
 using System.Text;
 
-namespace TheEntertainer.Services
+namespace BeatBallot.Web.Services
 {
     public class StringCompressorService
     {

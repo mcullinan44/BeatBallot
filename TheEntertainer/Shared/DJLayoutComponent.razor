@@ -1,0 +1,232 @@
+﻿@* DJLayoutComponent.razor *@
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+
+<div class="dj-dashboard">
+    <DJHeaderComponent UserDisplayName="@currentUser.DisplayName"
+                       UserProfileImage="@currentUser.ProfileImage"
+                       UserStatus="@currentUser.Status"
+                       OnProfileView="@HandleProfileView"
+                       OnAccountSettings="@HandleAccountSettings"
+                       OnSpotifyConnect="@HandleSpotifyConnect"
+                       OnLogout="@HandleLogout" />
+
+    <div class="dashboard-content">
+        <DJSidebarComponent IsCollapsed="@sidebarCollapsed"
+                            ActivePage="@GetActivePage()"
+                            PlaylistCount="@dashboardStats.PlaylistCount"
+                            HistoryCount="@dashboardStats.HistoryCount"
+                            TotalVotes="@dashboardStats.TotalVotes"
+                            ActiveSessions="@dashboardStats.ActiveSessions"
+                            OnToggleCollapse="@HandleSidebarToggle"
+                            OnNavigate="@HandleNavigation"
+                            OnCreatePlaylist="@HandleCreatePlaylist"
+                            OnStartLiveSession="@HandleStartLiveSession" />
+
+        <main class="main-content @(sidebarCollapsed ? "sidebar-collapsed" : "")">
+            <div class="content-wrapper">
+                @Body
+            </div>
+        </main>
+    </div>
+
+    @if (showMobileOverlay)
+    {
+        <div class="mobile-overlay" @onclick="HideMobileSidebar"></div>
+    }
+</div>
+
+@code {
+    private bool sidebarCollapsed = false;
+    private bool showMobileOverlay = false;
+
+    private UserModel currentUser = new()
+    {
+        DisplayName = "DJ Alex",
+        ProfileImage = "", // Will show initials if empty
+        Status = "Online"
+    };
+
+    private DashboardStatsModel dashboardStats = new()
+    {
+        PlaylistCount = 15,
+        HistoryCount = 42,
+        TotalVotes = 1847,
+        ActiveSessions = 2
+    };
+
+    protected override void OnInitialized()
+    {
+        // TODO: Load user data and dashboard stats from your service
+        // currentUser = await UserService.GetCurrentUserAsync();
+        // dashboardStats = await DashboardService.GetStatsAsync();
+    }
+
+    private string GetActivePage()
+    {
+        var currentUri = NavigationManager.Uri;
+
+        if (currentUri.Contains("/dj/history"))
+            return "history";
+        else if (currentUri.Contains("/dj/playlists") || currentUri.Contains("/dj"))
+            return "playlists";
+
+        return "playlists"; // Default to playlists
+    }
+
+    private async Task HandleSidebarToggle(bool collapsed)
+    {
+        sidebarCollapsed = collapsed;
+        StateHasChanged();
+    }
+
+    private async Task HandleNavigation(string page)
+    {
+        // Navigate to the appropriate page
+        switch (page)
+        {
+            case "/dj/playlists":
+                NavigationManager.NavigateTo("/dj/playlists");
+                break;
+            case "/dj/history":
+                NavigationManager.NavigateTo("/dj/history");
+                break;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HandleProfileView()
+    {
+        // NavigationManager.NavigateTo("/dj/profile");
+    }
+
+    private async Task HandleAccountSettings()
+    {
+        // NavigationManager.NavigateTo("/dj/settings");
+    }
+
+    private async Task HandleSpotifyConnect()
+    {
+        // Handle Spotify connection/reconnection
+        // SpotifyService.ReconnectAsync();
+    }
+
+    private async Task HandleLogout()
+    {
+        // TODO: Clear authentication state/cookies
+        // await AuthService.LogoutAsync();
+
+        // Navigate to login page
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    private async Task HandleCreatePlaylist()
+    {
+        NavigationManager.NavigateTo("/dj/playlists/create");
+    }
+
+    private async Task HandleStartLiveSession()
+    {
+        NavigationManager.NavigateTo("/dj/live/start");
+    }
+
+    private void HideMobileSidebar()
+    {
+        showMobileOverlay = false;
+    }
+
+    public class UserModel
+    {
+        public string DisplayName { get; set; } = "";
+        public string ProfileImage { get; set; } = "";
+        public string Status { get; set; } = "Online";
+    }
+
+    public class DashboardStatsModel
+    {
+        public int PlaylistCount { get; set; }
+        public int HistoryCount { get; set; }
+        public int TotalVotes { get; set; }
+        public int ActiveSessions { get; set; }
+    }
+}
+
+<style>
+    .dj-dashboard {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dashboard-content {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .main-content {
+        flex: 1;
+        margin-left: 280px;
+        transition: margin-left 0.3s ease;
+        overflow-y: auto;
+        min-height: calc(100vh - 70px);
+    }
+
+        .main-content.sidebar-collapsed {
+            margin-left: 70px;
+        }
+
+    .content-wrapper {
+        padding: 30px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 998;
+        display: none;
+    }
+
+
+
+    .main-content.sidebar-collapsed {
+        margin-left: 0;
+    }
+
+    .content-wrapper {
+        padding: 20px 15px;
+    }
+
+    .mobile-overlay {
+        display: block;
+    }
+
+    }
+
+    /* Custom scrollbar for main content */
+    .main-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .main-content::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+    }
+
+    .main-content::-webkit-scrollbar-thumb {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        border-radius: 4px;
+    }
+
+        .main-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #c0392b, #d68910);
+        }
+</style>

@@ -1,0 +1,622 @@
+﻿@* DJHistoryComponent.razor *@
+@page "/dj/history"
+@using BeatBallot.Web.Shared
+@layout DJLayoutComponent
+
+<div class="history-page">
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">Session History</h1>
+            <p class="page-subtitle">Track your past performances and audience engagement</p>
+        </div>
+        <div class="header-actions">
+            <div class="filter-controls">
+                <select class="filter-select" @onchange="HandlePeriodChange">
+                    <option value="week">Last Week</option>
+                    <option value="month" selected>Last Month</option>
+                    <option value="quarter">Last 3 Months</option>
+                    <option value="year">Last Year</option>
+                </select>
+                <button class="export-btn" @onclick="ExportHistory">
+                    <span class="btn-icon">📊</span>
+                    <span>Export Data</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-icon">🎵</div>
+            <div class="stat-content">
+                <div class="stat-number">@totalSessions</div>
+                <div class="stat-label">Total Sessions</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🗳️</div>
+            <div class="stat-content">
+                <div class="stat-number">@totalVotes</div>
+                <div class="stat-label">Total Votes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <div class="stat-number">@avgListeners</div>
+                <div class="stat-label">Avg Listeners</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+                <div class="stat-number">@avgDuration</div>
+                <div class="stat-label">Avg Duration</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="history-content">
+        <div class="sessions-list">
+            @foreach (var session in historySessions)
+            {
+                <div class="session-card">
+                    <div class="session-header">
+                        <div class="session-info">
+                            <h3 class="session-title">@session.PlaylistName</h3>
+                            <div class="session-meta">
+                                <span class="session-date">@session.Date.ToString("MMM dd, yyyy")</span>
+                                <span class="session-time">@session.StartTime.ToString("h:mm tt") - @session.EndTime.ToString("h:mm tt")</span>
+                                <span class="session-duration">(@session.Duration)</span>
+                            </div>
+                        </div>
+                        <div class="session-status @session.Status.ToLower()">
+                            @session.Status
+                        </div>
+                    </div>
+
+                    <div class="session-stats">
+                        <div class="stat-item">
+                            <span class="stat-icon">🎵</span>
+                            <span class="stat-text">@session.TracksPlayed tracks played</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">🗳️</span>
+                            <span class="stat-text">@session.TotalVotes total votes</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">👥</span>
+                            <span class="stat-text">@session.PeakListeners peak listeners</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">📈</span>
+                            <span class="stat-text">@session.EngagementRate% engagement</span>
+                        </div>
+                    </div>
+
+                    @if (session.TopTracks.Any())
+                    {
+                        <div class="top-tracks">
+                            <h4 class="tracks-title">Top Voted Tracks</h4>
+                            <div class="tracks-list">
+                                @foreach (var track in session.TopTracks.Take(3))
+                                {
+                                    <div class="track-item">
+                                        <div class="track-info">
+                                            <span class="track-name">@track.Name</span>
+                                            <span class="track-artist">@track.Artist</span>
+                                        </div>
+                                        <div class="track-votes">@track.Votes votes</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="session-actions">
+                        <button class="action-btn" @onclick="() => ViewDetails(session.Id)">
+                            <span class="btn-icon">👁️</span>
+                            <span>View Details</span>
+                        </button>
+                        <button class="action-btn" @onclick="() => ReplaySession(session.Id)">
+                            <span class="btn-icon">🔄</span>
+                            <span>Replay Session</span>
+                        </button>
+                        <button class="action-btn" @onclick="() => ShareSession(session.Id)">
+                            <span class="btn-icon">📤</span>
+                            <span>Share</span>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!historySessions.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <h2>No session history yet</h2>
+                <p>Start your first live session to begin tracking your DJ performance and audience engagement.</p>
+                <button class="start-session-btn" @onclick="StartNewSession">
+                    <span class="btn-icon">🎧</span>
+                    <span>Start Live Session</span>
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string selectedPeriod = "month";
+    private int totalSessions = 15;
+    private int totalVotes = 3847;
+    private int avgListeners = 67;
+    private string avgDuration = "2h 34m";
+
+    private List<SessionHistoryModel> historySessions = new()
+    {
+        new()
+        {
+            Id = 1,
+            PlaylistName = "Friday Night Vibes",
+            Date = DateTime.Now.AddDays(-2),
+            StartTime = DateTime.Now.AddDays(-2).AddHours(20),
+            EndTime = DateTime.Now.AddDays(-2).AddHours(23),
+            Duration = "3h 15m",
+            Status = "Completed",
+            TracksPlayed = 42,
+            TotalVotes = 1247,
+            PeakListeners = 89,
+            EngagementRate = 87,
+            TopTracks = new()
+            {
+                new() { Name = "Blinding Lights", Artist = "The Weeknd", Votes = 156 },
+                new() { Name = "Levitating", Artist = "Dua Lipa", Votes = 134 },
+                new() { Name = "Good 4 U", Artist = "Olivia Rodrigo", Votes = 98 }
+            }
+        },
+        new()
+        {
+            Id = 2,
+            PlaylistName = "Chill Lounge",
+            Date = DateTime.Now.AddDays(-5),
+            StartTime = DateTime.Now.AddDays(-5).AddHours(18),
+            EndTime = DateTime.Now.AddDays(-5).AddHours(20),
+            Duration = "2h 12m",
+            Status = "Completed",
+            TracksPlayed = 28,
+            TotalVotes = 567,
+            PeakListeners = 45,
+            EngagementRate = 76,
+            TopTracks = new()
+            {
+                new() { Name = "Watermelon Sugar", Artist = "Harry Styles", Votes = 78 },
+                new() { Name = "Peaches", Artist = "Justin Bieber", Votes = 65 },
+                new() { Name = "Stay", Artist = "The Kid LAROI", Votes = 52 }
+            }
+        },
+        new()
+        {
+            Id = 3,
+            PlaylistName = "Dance Floor Hits",
+            Date = DateTime.Now.AddDays(-8),
+            StartTime = DateTime.Now.AddDays(-8).AddHours(21),
+            EndTime = DateTime.Now.AddDays(-8).AddHours(23).AddMinutes(45),
+            Duration = "2h 45m",
+            Status = "Interrupted",
+            TracksPlayed = 35,
+            TotalVotes = 892,
+            PeakListeners = 124,
+            EngagementRate = 82,
+            TopTracks = new()
+            {
+                new() { Name = "Industry Baby", Artist = "Lil Nas X", Votes = 189 },
+                new() { Name = "Heat Waves", Artist = "Glass Animals", Votes = 167 },
+                new() { Name = "Bad Habits", Artist = "Ed Sheeran", Votes = 145 }
+            }
+        }
+    };
+
+    private async Task HandlePeriodChange(ChangeEventArgs e)
+    {
+        selectedPeriod = e.Value?.ToString() ?? "month";
+        // TODO: Reload data based on selected period
+        // await LoadHistoryData(selectedPeriod);
+    }
+
+    private async Task ExportHistory()
+    {
+        // TODO: Generate and download CSV/Excel export
+        // await HistoryService.ExportDataAsync(selectedPeriod);
+    }
+
+    private async Task ViewDetails(int sessionId)
+    {
+        // Navigate to detailed session view
+        // NavigationManager.NavigateTo($"/dj/history/{sessionId}");
+    }
+
+    private async Task ReplaySession(int sessionId)
+    {
+        // Create new session based on historical data
+        // NavigationManager.NavigateTo($"/dj/history/{sessionId}/replay");
+    }
+
+    private async Task ShareSession(int sessionId)
+    {
+        // Generate shareable link or report
+        // await ShareService.ShareSessionAsync(sessionId);
+    }
+
+    private async Task StartNewSession()
+    {
+        // Navigate to create new session
+        // NavigationManager.NavigateTo("/dj/playlists");
+    }
+
+    public class SessionHistoryModel
+    {
+        public int Id { get; set; }
+        public string PlaylistName { get; set; } = "";
+        public DateTime Date { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string Duration { get; set; } = "";
+        public string Status { get; set; } = "";
+        public int TracksPlayed { get; set; }
+        public int TotalVotes { get; set; }
+        public int PeakListeners { get; set; }
+        public int EngagementRate { get; set; }
+        public List<TopTrackModel> TopTracks { get; set; } = new();
+    }
+
+    public class TopTrackModel
+    {
+        public string Name { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public int Votes { get; set; }
+    }
+}
+
+<style>
+    .history-page {
+        padding: 0;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .header-content h1 {
+        color: white;
+        font-size: 2.5em;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .header-content p {
+        color: rgba(255,255,255,0.7);
+        font-size: 1.1em;
+        margin: 0;
+    }
+
+    .filter-controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .filter-select {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: white;
+        font-size: 0.9em;
+        cursor: pointer;
+    }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #f39c12;
+            box-shadow: 0 0 0 2px rgba(243,156,18,0.2);
+        }
+
+    .export-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9em;
+    }
+
+        .export-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+
+    .stat-card {
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 25px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 2.5em;
+            opacity: 0.8;
+        }
+
+    .stat-content {
+        flex: 1;
+    }
+
+    .stat-number {
+        color: #f39c12;
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .history-content {
+        margin-top: 20px;
+    }
+
+    .sessions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .session-card {
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 30px;
+        transition: all 0.3s ease;
+    }
+
+        .session-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+
+    .session-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .session-title {
+        color: white;
+        font-size: 1.4em;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+    }
+
+    .session-meta {
+        display: flex;
+        gap: 15px;
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9em;
+        flex-wrap: wrap;
+    }
+
+    .session-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+        .session-status.completed {
+            background: rgba(46,204,113,0.2);
+            color: #2ecc71;
+            border: 1px solid rgba(46,204,113,0.3);
+        }
+
+        .session-status.interrupted {
+            background: rgba(231,76,60,0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231,76,60,0.3);
+        }
+
+    .session-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255,255,255,0.8);
+        font-size: 0.9em;
+    }
+
+        .stat-item .stat-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+    .top-tracks {
+        margin-bottom: 25px;
+        padding: 20px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .tracks-title {
+        color: white;
+        font-size: 1.1em;
+        font-weight: bold;
+        margin: 0 0 15px 0;
+    }
+
+    .tracks-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .track-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+        .track-item:last-child {
+            border-bottom: none;
+        }
+
+    .track-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .track-name {
+        color: white;
+        font-weight: 600;
+        font-size: 0.9em;
+    }
+
+    .track-artist {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.8em;
+    }
+
+    .track-votes {
+        color: #f39c12;
+        font-weight: bold;
+        font-size: 0.85em;
+    }
+
+    .session-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .action-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: rgba(255,255,255,0.8);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85em;
+    }
+
+        .action-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+    .btn-icon {
+        font-size: 1em;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .empty-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.7;
+    }
+
+    .empty-state h2 {
+        color: white;
+        font-size: 2em;
+        margin-bottom: 15px;
+    }
+
+    .empty-state p {
+        font-size: 1.1em;
+        margin-bottom: 30px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+
+    .start-session-btn {
+        background: linear-gradient(45deg, #e74c3c, #f39c12);
+        border: none;
+        border-radius: 12px;
+        padding: 15px 25px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1em;
+        box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+    }
+
+        .start-session-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+        }
+</style>

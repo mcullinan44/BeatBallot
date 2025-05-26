@@ -1,4 +1,4 @@
-namespace TheEntertainer.Data
+namespace BeatBallot.Web.Data
 {
     public class WeatherForecastService
     {
