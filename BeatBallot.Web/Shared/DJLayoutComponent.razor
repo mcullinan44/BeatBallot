@@ -1,44 +1,56 @@
 ﻿@* DJLayoutComponent.razor *@
+@using BeatBallot.Services
+@using BeatBallot.Web.Pages.Manager
+@using SpotifyAPI.Web
 @inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@inject SpotifyService SpotifyService
 
-<div class="dj-dashboard">
-    <DJHeaderComponent UserDisplayName="@currentUser.DisplayName"
-                       UserProfileImage="@currentUser.ProfileImage"
-                       UserStatus="@currentUser.Status"
-                       OnProfileView="@HandleProfileView"
-                       OnAccountSettings="@HandleAccountSettings"
-                       OnSpotifyConnect="@HandleSpotifyConnect"
-                       OnLogout="@HandleLogout" />
+@if (_isInitialized)
+{
 
-    <div class="dashboard-content">
-        <DJSidebarComponent IsCollapsed="@sidebarCollapsed"
-                            ActivePage="@GetActivePage()"
-                            PlaylistCount="@dashboardStats.PlaylistCount"
-                            HistoryCount="@dashboardStats.HistoryCount"
-                            TotalVotes="@dashboardStats.TotalVotes"
-                            ActiveSessions="@dashboardStats.ActiveSessions"
-                            OnToggleCollapse="@HandleSidebarToggle"
-                            OnNavigate="@HandleNavigation"
-                            OnCreatePlaylist="@HandleCreatePlaylist"
-                            OnStartLiveSession="@HandleStartLiveSession" />
+    <AuthRequiredComponent>
+        <div class="dj-dashboard">
+            <DJHeaderComponent UserDisplayName="@currentUser.DisplayName"
+                               UserProfileImage="@currentUser.ProfileImage"
+                               UserStatus="@currentUser.Status"
+                               OnProfileView="@HandleProfileView"
+                               OnAccountSettings="@HandleAccountSettings"
+                               OnSpotifyConnect="@HandleSpotifyConnect"
+                               OnLogout="@HandleLogout"/>
 
-        <main class="main-content @(sidebarCollapsed ? "sidebar-collapsed" : "")">
-            <div class="content-wrapper">
-                @Body
+            <div class="dashboard-content">
+                <DJSidebarComponent IsCollapsed="@sidebarCollapsed"
+                                    ActivePage="@GetActivePage()"
+                                    PlaylistCount="@dashboardStats.PlaylistCount"
+                                    HistoryCount="@dashboardStats.HistoryCount"
+                                    TotalVotes="@dashboardStats.TotalVotes"
+                                    TotalSessions="@dashboardStats.TotalSessions"
+                                    OnToggleCollapse="@HandleSidebarToggle"
+                                    OnNavigate="@HandleNavigation"
+                                    OnCreatePlaylist="@HandleCreatePlaylist"
+                                    OnStartLiveSession="@HandleStartLiveSession"/>
+
+                <main class="main-content @(sidebarCollapsed ? "sidebar-collapsed" : "")">
+                    <div class="content-wrapper">
+                        @Body
+                    </div>
+                </main>
             </div>
-        </main>
-    </div>
 
-    @if (showMobileOverlay)
-    {
-        <div class="mobile-overlay" @onclick="HideMobileSidebar"></div>
-    }
-</div>
+            @if (showMobileOverlay)
+            {
+                <div class="mobile-overlay" @onclick="HideMobileSidebar"></div>
+            }
+        </div>
+    </AuthRequiredComponent>
+}
 
 @code {
     private bool sidebarCollapsed = false;
     private bool showMobileOverlay = false;
+    private bool _isInitialized = false;
+    private PrivateUser _privateUser;
 
     private UserModel currentUser = new()
     {
@@ -52,11 +64,33 @@
         PlaylistCount = 15,
         HistoryCount = 42,
         TotalVotes = 1847,
-        ActiveSessions = 2
+        TotalSessions = 2
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        bool hasValidToken = await SpotifyService.GetHasValidToken();
+        if (!hasValidToken)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+    
+
+        currentUser = new UserModel();
+        var t = await SpotifyService.GetUserName();
+        _privateUser = t;
+        currentUser.DisplayName = _privateUser.DisplayName;
+        if (_privateUser.Images.Count > 0)
+        {
+            currentUser.ProfileImage = _privateUser.Images[0].Url;
+        }
+
+        _isInitialized = true;
+
+
+        //return base.OnInitializedAsync();
+
         // TODO: Load user data and dashboard stats from your service
         // currentUser = await UserService.GetCurrentUserAsync();
         // dashboardStats = await DashboardService.GetStatsAsync();
@@ -65,13 +99,14 @@
     private string GetActivePage()
     {
         var currentUri = NavigationManager.Uri;
+        return currentUri;
 
-        if (currentUri.Contains("/dj/history"))
-            return "history";
-        else if (currentUri.Contains("/dj/playlists") || currentUri.Contains("/dj"))
-            return "playlists";
+        // if (currentUri.Contains("/dj/history"))
+        //     return "history";
+        // else if (currentUri.Contains("/dj/playlists") || currentUri.Contains("/dj"))
+        //     return "playlists";
 
-        return "playlists"; // Default to playlists
+        // return "/";
     }
 
     private async Task HandleSidebarToggle(bool collapsed)
@@ -91,6 +126,10 @@
             case "/dj/history":
                 NavigationManager.NavigateTo("/dj/history");
                 break;
+            default: 
+                NavigationManager.NavigateTo("/home");
+                break;
+
         }
 
         StateHasChanged();
@@ -123,7 +162,7 @@
 
     private async Task HandleCreatePlaylist()
     {
-        NavigationManager.NavigateTo("/dj/playlists/create");
+        NavigationManager.NavigateTo("/dj/session/create");
     }
 
     private async Task HandleStartLiveSession()
@@ -148,7 +187,7 @@
         public int PlaylistCount { get; set; }
         public int HistoryCount { get; set; }
         public int TotalVotes { get; set; }
-        public int ActiveSessions { get; set; }
+        public int TotalSessions { get; set; }
     }
 }
 

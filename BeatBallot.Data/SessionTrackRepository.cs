@@ -3,21 +3,21 @@ using Dapper;
 
 namespace BeatBallot.Data
 {
-    public class JamTrackRepository
+    public class SessionTrackRepository
     {
         private readonly DapperContext _context;
 
-        public JamTrackRepository(DapperContext context)
+        public SessionTrackRepository(DapperContext context)
         {
             _context = context;
         }
 
-        public async Task<IEnumerable<JamTrack>> GetJamTracksAsync()
+        public async Task<IEnumerable<SessionTrack>> GetJamTracksAsync()
         {
-            var query = "SELECT * FROM JamTrack";
+            var query = "SELECT * FROM SessionTrack";
             using (var connection = _context.CreateConnection())
             {
-                return await connection.QueryAsync<JamTrack>(query);
+                return await connection.QueryAsync<SessionTrack>(query);
             }
         }
 

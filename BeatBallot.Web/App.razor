@@ -34,7 +34,7 @@
         var path = new Uri(currentUri).AbsolutePath.ToLower();
         
         // Routes that should NOT use DJLayoutComponent
-        var publicRoutes = new[] { "/vote", "/login", "/register" };
+        var publicRoutes = new[] { "/vote", "/login", "/register", "/authcallback" };
         
         if (publicRoutes.Any(route => path.StartsWith(route)))
         {
@@ -42,7 +42,7 @@
         }
         
         // Routes that should use DJLayoutComponent (DJ dashboard pages)
-        var djRoutes = new[] { "/dj" };
+        var djRoutes = new[] { "/home", "/" };
         
         if (djRoutes.Any(route => path.StartsWith(route)))
         {

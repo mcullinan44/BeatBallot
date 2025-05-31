@@ -1,141 +1,154 @@
 ﻿@* DJHomeComponent.razor *@
+@page "/home"
 @page "/"
+@using BeatBallot.Services
 @using BeatBallot.Web.Shared
+@using SpotifyAPI.Web
+@inject SpotifyService SpotifyService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @layout DJLayoutComponent
 
-<div class="dj-home">
-    <div class="welcome-section">
-        <div class="welcome-content">
-            <h1 class="welcome-title">Welcome back, DJ Alex!</h1>
-            <p class="welcome-subtitle">Ready to create some amazing music experiences?</p>
-        </div>
-        <div class="quick-actions">
-            <button class="quick-action-btn primary" @onclick="CreatePlaylist">
-                <div class="action-icon">➕</div>
-                <div class="action-text">
-                    <span class="action-title">Create Playlist</span>
-                    <span class="action-desc">Start a new collection</span>
-                </div>
-            </button>
-            <button class="quick-action-btn secondary" @onclick="GoLive">
-                <div class="action-icon">🎧</div>
-                <div class="action-text">
-                    <span class="action-title">Go Live</span>
-                    <span class="action-desc">Start voting session</span>
-                </div>
-            </button>
-        </div>
-    </div>
 
-    <div class="dashboard-overview">
-        <div class="overview-cards">
-            <div class="overview-card">
-                <div class="card-icon">🎵</div>
-                <div class="card-content">
-                    <div class="card-number">@totalPlaylists</div>
-                    <div class="card-label">Total Playlists</div>
-                    <div class="card-change positive">+3 this week</div>
-                </div>
+@if (_isInitialized)
+{
+
+    <div class="dj-home">
+        <div class="welcome-section">
+            <div class="welcome-content">
+                <h1 class="welcome-title">Welcome back, @_privateUser.DisplayName!</h1>
+                <p class="welcome-subtitle">Ready to create some amazing music experiences?</p>
             </div>
-
-            <div class="overview-card">
-                <div class="card-icon">🗳️</div>
-                <div class="card-content">
-                    <div class="card-number">@totalVotes</div>
-                    <div class="card-label">Total Votes</div>
-                    <div class="card-change positive">+247 today</div>
-                </div>
-            </div>
-
-            <div class="overview-card">
-                <div class="card-icon">👥</div>
-                <div class="card-content">
-                    <div class="card-number">@totalListeners</div>
-                    <div class="card-label">Total Listeners</div>
-                    <div class="card-change positive">+12 this hour</div>
-                </div>
-            </div>
-
-            <div class="overview-card">
-                <div class="card-icon">⏱️</div>
-                <div class="card-content">
-                    <div class="card-number">@hoursPlayed</div>
-                    <div class="card-label">Hours Played</div>
-                    <div class="card-change neutral">This month</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="recent-activity">
-        <div class="activity-header">
-            <h2 class="section-title">Recent Activity</h2>
-            <a href="/dj/history" class="view-all-link">View All</a>
-        </div>
-
-        <div class="activity-list">
-            @foreach (var activity in recentActivities)
-            {
-                <div class="activity-item">
-                    <div class="activity-icon">@activity.Icon</div>
-                    <div class="activity-content">
-                        <div class="activity-title">@activity.Title</div>
-                        <div class="activity-description">@activity.Description</div>
-                        <div class="activity-time">@activity.TimeAgo</div>
+         @*    <div class="quick-actions">
+                <button class="quick-action-btn primary" @onclick="CreatePlaylist">
+                    <div class="action-icon">➕</div>
+                    <div class="action-text">
+                        <span class="action-title">Create Playlist</span>
+                        <span class="action-desc">Start a new collection</span>
                     </div>
-                    @if (activity.HasAction)
-                    {
-                        <button class="activity-action" @onclick="() => HandleActivityAction(activity.Id)">
-                            @activity.ActionText
-                        </button>
-                    }
-                </div>
-            }
-        </div>
-    </div>
-
-    <div class="popular-playlists">
-        <div class="section-header">
-            <h2 class="section-title">Your Popular Playlists</h2>
-            <a href="/dj/playlists" class="view-all-link">View All</a>
-        </div>
-
-        <div class="playlists-preview">
-            @foreach (var playlist in popularPlaylists)
-            {
-                <div class="playlist-preview-card" @onclick="() => ViewPlaylist(playlist.Id)">
-                    @if (playlist.IsLive)
-                    {
-                        <div class="live-badge">
-                            <span class="live-dot"></span>
-                            LIVE
-                        </div>
-                    }
-
-                    <div class="playlist-cover">
-                        <div class="cover-placeholder">
-                            <span class="cover-icon">🎵</span>
-                        </div>
+                </button>
+                <button class="quick-action-btn secondary" @onclick="GoLive">
+                    <div class="action-icon">🎧</div>
+                    <div class="action-text">
+                        <span class="action-title">Go Live</span>
+                        <span class="action-desc">Start voting session</span>
                     </div>
-
-                    <div class="playlist-info">
-                        <h3 class="playlist-title">@playlist.Name</h3>
-                        <div class="playlist-stats">
-                            <span>@playlist.TrackCount songs</span>
-                            <span>@playlist.TotalVotes votes</span>
-                        </div>
+                </button>
+            </div> *@
+        </div>
+@* 
+        <div class="dashboard-overview">
+            <div class="overview-cards">
+                 <div class="overview-card">
+                    <div class="card-icon">🎵</div>
+                    <div class="card-content">
+                        <div class="card-number">@totalPlaylists</div>
+                        <div class="card-label">Total Playlists</div>
+                        <div class="card-change positive">+3 this week</div>
                     </div>
                 </div>
-            }
+
+                <div class="overview-card">
+                    <div class="card-icon">🗳️</div>
+                    <div class="card-content">
+                        <div class="card-number">@totalVotes</div>
+                        <div class="card-label">Total Votes</div>
+                        <div class="card-change positive">+247 today</div>
+                    </div>
+                </div> 
+
+                <div class="overview-card">
+                    <div class="card-icon">👥</div>
+                    <div class="card-content">
+                        <div class="card-number">@totalListeners</div>
+                        <div class="card-label">Total Listeners</div>
+                        <div class="card-change positive">+12 this hour</div>
+                    </div>
+                </div>
+
+                <div class="overview-card">
+                    <div class="card-icon">⏱️</div>
+                    <div class="card-content">
+                        <div class="card-number">@hoursPlayed</div>
+                        <div class="card-label">Hours Played</div>
+                        <div class="card-change neutral">This month</div>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <div class="recent-activity">
+            <div class="activity-header">
+                <h2 class="section-title">Recent Activity</h2>
+                <a href="/dj/history" class="view-all-link">View All</a>
+            </div>
+
+            <div class="activity-list">
+                @foreach (var activity in recentActivities)
+                {
+                    <div class="activity-item">
+                        <div class="activity-icon">@activity.Icon</div>
+                        <div class="activity-content">
+                            <div class="activity-title">@activity.Title</div>
+                            <div class="activity-description">@activity.Description</div>
+                            <div class="activity-time">@activity.TimeAgo</div>
+                        </div>
+                        @if (activity.HasAction)
+                        {
+                            <button class="activity-action" @onclick="() => HandleActivityAction(activity.Id)">
+                                @activity.ActionText
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="popular-playlists">
+            <div class="section-header">
+                <h2 class="section-title">Your Popular Playlists</h2>
+                <a href="/dj/playlists" class="view-all-link">View All</a>
+            </div>
+
+            <div class="playlists-preview">
+                @foreach (var playlist in popularPlaylists)
+                {
+                    <div class="playlist-preview-card" @onclick="() => ViewPlaylist(playlist.Id)">
+                        @if (playlist.IsLive)
+                        {
+                            <div class="live-badge">
+                                <span class="live-dot"></span>
+                                LIVE
+                            </div>
+                        }
+
+                        <div class="playlist-cover">
+                            <div class="cover-placeholder">
+                                <span class="cover-icon">🎵</span>
+                            </div>
+                        </div>
+
+                        <div class="playlist-info">
+                            <h3 class="playlist-title">@playlist.Name</h3>
+                            <div class="playlist-stats">
+                                <span>@playlist.TrackCount songs</span>
+                                <span>@playlist.TotalVotes votes</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div> *@
     </div>
-</div>
+}
 
 @code {
     private int totalPlaylists = 15;
     private int totalVotes = 3847;
     private int totalListeners = 1239;
     private string hoursPlayed = "47h";
+    private string _userName = "";
+    private PrivateUser _privateUser;
+    private bool _isInitialized = false;
 
     private List<ActivityModel> recentActivities = new()
     {
@@ -198,6 +211,19 @@
             IsLive = false
         }
     };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _privateUser = await SpotifyService.GetUserName();
+
+        _isInitialized = true;
+  
+
+
+         await base.OnInitializedAsync();
+
+    }
+
 
     private async Task CreatePlaylist()
     {

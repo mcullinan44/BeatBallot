@@ -1,5 +1,11 @@
-﻿@* LoginComponent.razor *@
+﻿
 @page "/login"
+@using BeatBallot.Services
+@using ISpotifyAuthService = BeatBallot.Web.Services.ISpotifyAuthService
+@inject ISpotifyAuthService SpotifyAuth
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <div class="auth-container">
     <div class="auth-card">
@@ -37,10 +43,6 @@
                         <span>Access your music library</span>
                     </div>
                     <div class="feature-item">
-                        <span class="feature-icon">🎧</span>
-                        <span>Create custom playlists</span>
-                    </div>
-                    <div class="feature-item">
                         <span class="feature-icon">🗳️</span>
                         <span>Let audiences vote on tracks</span>
                     </div>
@@ -58,33 +60,64 @@
 @code {
     private bool isLoading = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already authenticated and redirect
+        if (await SpotifyAuth.IsAuthenticatedAsync())
+        {
+            NavigationManager.NavigateTo("/dj/playlists", forceLoad: true);
+            return;
+        }
+    }
+
     private async Task LoginWithSpotify()
     {
+        if (isLoading) return;
+        
         isLoading = true;
         StateHasChanged();
 
         try
         {
-            // TODO: Implement Spotify OAuth login
-            // Redirect to Spotify authorization URL
-            // Example: NavigationManager.NavigateTo("https://accounts.spotify.com/authorize?...")
-            await Task.Delay(1000); // Simulate OAuth redirect
+            // Generate state for security
+            var state = GenerateRandomState();
+            var redirectUri = $"{Configuration["BaseUrl"]}/authcallback";
+            
+            // Get authorization URL from service
+            var authUrl = SpotifyAuth.GetAuthorizationUrl(state, redirectUri);
+            
+            // Store state for validation after callback
+            await SpotifyAuth.StoreStateAsync(state);
+            
+            // Redirect to Spotify authorization
+            //NavigationManager.NavigateTo(authUrl, forceLoad: false);
 
-            // After successful authentication, navigate to dashboard
-            // NavigationManager.NavigateTo("/dashboard");
+            await JSRuntime.InvokeVoidAsync("window.location.assign", authUrl);
+            //await JSRuntime.InvokeVoidAsync("window.location.assign", "https://www.google.com");
+
         }
         catch (Exception ex)
         {
-            // Handle login error
             Console.WriteLine($"Spotify login error: {ex.Message}");
+            // TODO: Show error message to user
         }
         finally
         {
             isLoading = false;
-            StateHasChanged();
+            //StateHasChanged();
         }
     }
+
+    private string GenerateRandomState()
+    {
+        var random = new Random();
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Repeat(chars, 32)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
 }
+
+<!-- Keep existing styles -->
 
 <style>
     .auth-container {

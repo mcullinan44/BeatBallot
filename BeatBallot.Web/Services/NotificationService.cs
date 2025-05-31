@@ -1,4 +1,5 @@
 ﻿using BeatBallot.Models;
+using BeatBallot.Web.Pages;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 
@@ -13,10 +14,10 @@ namespace BeatBallot.Web.Services
             _hubContext = hubContext;
         }
 
-        public async Task SendTrackVoteNotification(VoteNotification notification, Jam jam)
+        public async Task SendTrackVoteNotification(VoteNotification notification, Session session)
         {
             string jsonString = JsonConvert.SerializeObject(notification);
-            VoteTarget voteTarget = jam.VoteTargets.FirstOrDefault(i => i.ExternalTrackUri == notification.ExternalTrackUri);
+            VoteTarget voteTarget = session.VoteTargets.FirstOrDefault(i => i.ExternalTrackUri == notification.ExternalTrackUri);
             voteTarget.TotalVotes += notification.Value;
 
             await _hubContext.Clients.All.SendAsync("SendVoteToUsers", jsonString);

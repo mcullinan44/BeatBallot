@@ -1,10 +1,20 @@
 ﻿using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using Microsoft.JSInterop;
-
 
 namespace BeatBallot.Web.Services
 {
+    public interface ILocalStorageService
+    {
+        public Task<T> GetItemAsync<T>(string key);
+
+        public Task RemoveItemAsync(string key);
+
+        public Task StoreStateAsync<T>(string key, T value);
+
+    }
+
     public class LocalStorageService : ILocalStorageService
     {
         private readonly IJSRuntime jsruntime;
@@ -13,38 +23,115 @@ namespace BeatBallot.Web.Services
             jsruntime = jSRuntime;
         }
 
-        public async Task RemoveAsync(string key)
+
+        public async Task RemoveItemAsync(string key)
         {
             await jsruntime.InvokeVoidAsync("localStorage.removeItem", key).ConfigureAwait(false);
         }
 
-        public async Task SaveStringAsync(string key, string value)
+
+        public async Task StoreStateAsync<T>(string key, T value)
         {
-            byte[] compressedBytes = await Compressor.CompressBytesAsync(Encoding.UTF8.GetBytes(value));
-            await jsruntime.InvokeVoidAsync("localStorage.setItem", key, Convert.ToBase64String(compressedBytes)).ConfigureAwait(false);
+            try
+            {
+                string json;
+
+                // Handle different types
+                if (value is string stringValue)
+                {
+                    json = stringValue;
+                }
+                else if (value is int || value is DateTime || value is bool)
+                {
+                    json = value.ToString();
+                }
+                else
+                {
+                    // Serialize complex objects to JSON
+                    json = JsonSerializer.Serialize(value);
+                }
+
+                // Convert to bytes
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+
+                // Compress the bytes
+                byte[] compressedBytes = await Compressor.CompressBytesAsync(bytes);
+
+                // Encode to base64
+                string compressedBase64 = Convert.ToBase64String(compressedBytes);
+
+                // Store in localStorage
+                await jsruntime.InvokeVoidAsync("localStorage.setItem", key, compressedBase64)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving item '{key}' to localStorage: {ex.Message}");
+                throw;
+            }
         }
 
-        public async Task<string> GetStringAsync(string key)
+
+        public async Task<T> GetItemAsync<T>(string key)
         {
-            string str = await jsruntime.InvokeAsync<string>("localStorage.getItem", key).ConfigureAwait(false);
-            if (str == null)
-                return null;
-            byte[] bytes = await Compressor.DecompressBytesAsync(Convert.FromBase64String(str));
-            return Encoding.UTF8.GetString(bytes);
+            try
+            {
+                // Get the compressed, base64-encoded string from localStorage
+                string compressedBase64 = await jsruntime.InvokeAsync<string>("localStorage.getItem", key)
+                    .ConfigureAwait(false);
+
+                // Return default if nothing stored
+                if (string.IsNullOrEmpty(compressedBase64))
+                    return default(T);
+
+                // Decode from base64
+                byte[] compressedBytes = Convert.FromBase64String(compressedBase64);
+
+                // Decompress the bytes
+                byte[] decompressedBytes = await Compressor.DecompressBytesAsync(compressedBytes);
+
+                // Convert bytes back to string
+                string json = Encoding.UTF8.GetString(decompressedBytes);
+
+                // Handle different types
+                if (typeof(T) == typeof(string))
+                {
+                    return (T)(object)json;
+                }
+
+                if (typeof(T) == typeof(int))
+                {
+                    if (int.TryParse(json, out int intValue))
+                        return (T)(object)intValue;
+                    return default(T);
+                }
+
+                if (typeof(T) == typeof(DateTime))
+                {
+                    if (DateTime.TryParse(json, out DateTime dateValue))
+                        return (T)(object)dateValue;
+                    return default(T);
+                }
+
+                if (typeof(T) == typeof(bool))
+                {
+                    if (bool.TryParse(json, out bool boolValue))
+                        return (T)(object)boolValue;
+                    return default(T);
+                }
+
+                // For complex objects, deserialize JSON
+                return JsonSerializer.Deserialize<T>(json);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return default
+                Console.WriteLine($"Error getting item '{key}' from localStorage: {ex.Message}");
+                return default(T);
+            }
         }
 
-        public async Task SaveStringArrayAsync(string key, string[] values)
-        {
-            await SaveStringAsync(key, values == null ? "" : string.Join('\0', values));
-        }
-
-        public async Task<string[]> GetStringArrayAsync(string key)
-        {
-            string data = await GetStringAsync(key);
-            if (!string.IsNullOrEmpty(data))
-                return data.Split('\0');
-            return null;
-        }
+      
     }
 
     internal class Compressor

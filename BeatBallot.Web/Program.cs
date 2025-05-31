@@ -5,6 +5,8 @@ using BeatBallot.Services;
 using BeatBallot.Web.Middleware;
 using BeatBallot.Web.Services;
 using Blazored.LocalStorage;
+using ISpotifyAuthService = BeatBallot.Web.Services.ISpotifyAuthService;
+using SpotifyAuthService = BeatBallot.Web.Services.SpotifyAuthService;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,37 +27,15 @@ builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnC
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["BaseUrl"]) });
 
 
-
+builder.Services.AddScoped<ITokenProvider, TokenProvider>();
 builder.Services.AddScoped<SpotifyService>();
 builder.Services.AddSingleton<StringCompressorService>();
-builder.Services.AddSingleton<JamCacheService>();
+builder.Services.AddSingleton<SessionCacheService>();
+
 builder.Services.AddBlazoredLocalStorage();
-
-
+builder.Services.AddScoped<ISpotifyAuthService, SpotifyAuthService>();
 
 var app = builder.Build();
-app.MapGet("/loginold", () =>
-{
-    string clientId = builder.Configuration["SpotifyClientId"];
-    string redirectUri = builder.Configuration["BaseUrl"] + "/jam";
-    Random random = new Random();
-    string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    char[] stringChars = new char[16];
-
-    for (int i = 0; i < stringChars.Length; i++)
-    {
-        stringChars[i] = chars[random.Next(chars.Length)];
-    }
-
-    string state = new string(stringChars);
-    string scope = "user-read-private user-read-email user-modify-playback-state user-read-playback-state user-read-currently-playing";
-    StringBuilder query = new StringBuilder();
-    query.Append("https://accounts.spotify.com/authorize?");
-    query.Append($"response_type=code&client_id={clientId}&scope={scope}&redirect_uri={redirectUri}&state={state}");
-    dynamic data = new { Query = query.ToString() };
-    return Results.Json(data);
-});
-
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

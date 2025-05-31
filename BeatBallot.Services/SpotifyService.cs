@@ -4,7 +4,7 @@ using SpotifyAPI.Web;
 
 namespace BeatBallot.Services
 {
-    public class SpotifyService: ISpotifyService
+    public class SpotifyService
     {
         private string _accessToken;
 
@@ -44,6 +44,12 @@ namespace BeatBallot.Services
         public async Task<DeviceResponse> GetAvailableDevicesAsync()
         {
             return await _spotifyClient.Player.GetAvailableDevices();
+        }
+
+
+        public async Task<PrivateUser> GetUserName()
+        {
+            return await _spotifyClient.UserProfile.Current();
         }
 
         public async Task PausePlaybackAsync()

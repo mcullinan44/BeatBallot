@@ -3,9 +3,9 @@ using SpotifyAPI.Web;
 
 namespace BeatBallot.Models
 {
-    public class Jam
+    public class Session
     {
-        public Jam(DeeJayUser deeJayUser)
+        public Session(DeeJayUser deeJayUser)
         {
             CreatedDateTime = DateTime.Now;
             DeeJayUser = deeJayUser;
@@ -19,14 +19,14 @@ namespace BeatBallot.Models
 
         public DateTime CreatedDateTime { get; private set; }
 
-        public JamPlaylist JamPlaylist { get; set; }
+        public SessionPlaylist SessionPlaylist { get; set; }
 
 
         public List<VoteTarget> VoteTargets
         {
             get
             {
-                return JamPlaylist.VoteTargetList.OrderBy(item => item.SongName).ThenBy(item => item.ArtistName)
+                return SessionPlaylist.VoteTargetList.OrderBy(item => item.SongName).ThenBy(item => item.ArtistName)
                     .ToList();
             }
         }
@@ -37,23 +37,23 @@ namespace BeatBallot.Models
     }
 
 
-    public class JamPlaylist
+    public class SessionPlaylist
     {
-        public JamPlaylist(List<FullTrack> fullPlaylist)
+        public SessionPlaylist(List<FullTrack> fullPlaylist)
         {
             SpotifyFullPlaylist = fullPlaylist;
-            JamTrackList = new List<JamTrack>(fullPlaylist.Count);
+            SessionTrackList = new List<SessionTrack>(fullPlaylist.Count);
             VoteTargetList = new List<VoteTarget>(fullPlaylist.Count);
             foreach (FullTrack fullTrack in fullPlaylist)
             {
-                JamTrack jamtrack = new JamTrack(fullTrack);
+                SessionTrack jamtrack = new SessionTrack(fullTrack);
                 jamtrack.PlaylistPosition = fullPlaylist.IndexOf(fullTrack);
                 jamtrack.IsPlaying = false;
                 jamtrack.NumberOfVotes = 0;
-                JamTrackList.Add(jamtrack);
+                SessionTrackList.Add(jamtrack);
             }
 
-            foreach (JamTrack jamTrack in JamTrackList)
+            foreach (SessionTrack jamTrack in SessionTrackList)
             {
                 VoteTarget voteTarget = new VoteTarget();
                 voteTarget.ArtistName = jamTrack.SpotifyFullTrack.Artists[0].Name;
@@ -72,15 +72,15 @@ namespace BeatBallot.Models
 
         public List<FullTrack> SpotifyFullPlaylist { get; private set; }
 
-        public List<JamTrack> JamTrackList { get;  set; }
+        public List<SessionTrack> SessionTrackList { get;  set; }
 
         public List<VoteTarget> VoteTargetList { get; set; }
     }
 
-    public class JamTrack
+    public class SessionTrack
     {
 
-        public JamTrack(FullTrack fullTrack)
+        public SessionTrack(FullTrack fullTrack)
         {
             this.SpotifyFullTrack = fullTrack;
         }
@@ -115,15 +115,15 @@ namespace BeatBallot.Models
 
     public class VoteNotification
     {
-        public VoteNotification(string jid, string trackUri, int value)
+        public VoteNotification(string sessionId, string trackUri, int value)
         {
-            this.JamId = jid;
+            this.SessionId = sessionId;
             this.ExternalTrackUri = trackUri;
             this.Value = value;
         }
 
-        [JsonProperty("JamId")]
-        public string JamId { get; private set;  }
+        [JsonProperty("SessionId")]
+        public string SessionId { get; private set;  }
 
         [JsonProperty("ExternalTrackUri")]
         public string ExternalTrackUri { get; private set;  }

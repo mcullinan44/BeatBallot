@@ -21,13 +21,18 @@
   <ItemGroup>
     <ProjectReference Include="..\BeatBallot.DataModels\BeatBallot.Models.csproj" />
     <ProjectReference Include="..\BeatBallot.Data\BeatBallot.Data.csproj" />
-    <ProjectReference Include="..\BeatBallot.Services\BeatBallot.Services.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Update="wwwroot\websurge-allow.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Components\Manager\" />
+    <Folder Include="Properties\PublishProfiles\" />
+    <Folder Include="Properties\ServiceDependencies\" />
   </ItemGroup>
 
 </Project>
