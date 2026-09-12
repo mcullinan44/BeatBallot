@@ -1,0 +1,29 @@
+﻿
+@if (IsVisible)
+{
+
+    <div class="voting-stopped-overlay">
+        <div class="logo"><img src="fulllogo.png"/></div>
+ @*        <div class="voting-stopped-modal">
+            <h1>The DJ has ended the session.</h1>
+            <p>Thank you for participating!</p>
+            @if (ShowAcknowledgeButton)
+            {
+                <button class="btn-primary" @onclick="HandleAcknowledge">
+                    Got it
+                </button>
+            }
+        </div> *@
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnAcknowledge { get; set; }
+    [Parameter] public bool ShowAcknowledgeButton { get; set; } = true;
+
+    private async Task HandleAcknowledge()
+    {
+        await OnAcknowledge.InvokeAsync();
+    }
+}

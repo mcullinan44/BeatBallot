@@ -1,0 +1,490 @@
+/* BeatBallot Landing Page Styles */
+
+/* ===== 1. CSS VARIABLES (from sitenew.css design tokens) ===== */
+:root {
+    /* Primary Colors */
+    --bb-red-primary: #e74c3c;
+    --bb-red-dark: #c0392b;
+    --bb-orange-primary: #f39c12;
+    --bb-orange-dark: #e67e22;
+    --bb-blue-primary: #3498db;
+    --bb-blue-dark: #2980b9;
+    --bb-green-primary: #2ecc71;
+    --bb-green-dark: #27ae60;
+
+    /* Grayscale */
+    --bb-gray-50: rgba(255,255,255,0.05);
+    --bb-gray-100: rgba(255,255,255,0.1);
+    --bb-gray-200: rgba(255,255,255,0.2);
+    --bb-gray-300: rgba(255,255,255,0.3);
+    --bb-gray-700: rgba(255,255,255,0.7);
+    --bb-gray-800: rgba(255,255,255,0.8);
+    --bb-gray-900: rgba(255,255,255,0.9);
+
+    /* Spacing */
+    --bb-space-xs: 4px;
+    --bb-space-sm: 8px;
+    --bb-space-md: 12px;
+    --bb-space-lg: 20px;
+    --bb-space-xl: 30px;
+    --bb-space-2xl: 40px;
+
+    /* Border Radius */
+    --bb-radius-sm: 8px;
+    --bb-radius-md: 12px;
+    --bb-radius-lg: 20px;
+    --bb-radius-xl: 30px;
+
+    /* Backgrounds */
+    --bg-primary: #1A2042;
+    --bg-secondary: #1A252F;
+}
+
+/* ===== 2. RESET & BASE STYLES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: white;
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--bb-space-lg);
+}
+
+/* ===== 3. HERO SECTION ===== */
+.hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    padding: var(--bb-space-2xl) var(--bb-space-lg);
+    position: relative;
+}
+
+.hero-content {
+    max-width: 800px;
+    animation: bb-fadeIn 1s ease-out;
+}
+
+.hero-logo {
+    width: 200px;
+    max-width: 90%;
+    height: auto;
+    margin-bottom: var(--bb-space-xl);
+    animation: bb-pulse 2s ease-in-out infinite;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: var(--bb-space-lg);
+    background: linear-gradient(135deg, var(--bb-red-primary), var(--bb-orange-primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    color: var(--bb-gray-700);
+    margin-bottom: var(--bb-space-2xl);
+    line-height: 1.8;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: var(--bb-space-lg);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ===== 4. BUTTON STYLES ===== */
+.btn {
+    padding: var(--bb-space-md) var(--bb-space-xl);
+    border-radius: var(--bb-radius-md);
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-block;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--bb-red-primary), var(--bb-orange-primary));
+    color: white;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: white;
+    border: 2px solid var(--bb-gray-200);
+}
+
+.btn-secondary:hover {
+    border-color: var(--bb-orange-primary);
+    background: var(--bb-gray-50);
+    transform: translateY(-2px);
+}
+
+.btn-large {
+    padding: var(--bb-space-lg) var(--bb-space-2xl);
+    font-size: 1.125rem;
+}
+
+/* ===== 5. FEATURES SECTION ===== */
+.features {
+    padding: 80px var(--bb-space-lg);
+    background: var(--bg-secondary);
+}
+
+.section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 60px;
+    color: white;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--bb-space-xl);
+}
+
+.feature-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--bb-gray-100);
+    border-radius: var(--bb-radius-lg);
+    padding: var(--bb-space-xl);
+    text-align: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(20px);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--bb-gray-200);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.feature-icon {
+    font-size: 2.5em;
+    margin-bottom: var(--bb-space-lg);
+    display: inline-block;
+    animation: bb-pulse 2s ease-in-out infinite;
+}
+
+.feature-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--bb-space-md);
+    color: white;
+}
+
+.feature-description {
+    color: var(--bb-gray-700);
+    line-height: 1.6;
+}
+
+/* ===== 6. HOW IT WORKS SECTION ===== */
+.how-it-works {
+    padding: 80px var(--bb-space-lg);
+    background: var(--bg-primary);
+}
+
+.steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--bb-space-lg);
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.step {
+    flex: 1;
+    text-align: center;
+    padding: var(--bb-space-xl);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--bb-gray-100);
+    border-radius: var(--bb-radius-lg);
+    transition: all 0.3s ease;
+}
+
+.step:hover {
+    transform: translateY(-3px);
+    border-color: var(--bb-orange-primary);
+}
+
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--bb-red-primary), var(--bb-orange-primary));
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--bb-space-lg);
+}
+
+.step-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--bb-space-md);
+    color: white;
+}
+
+.step-description {
+    color: var(--bb-gray-700);
+    line-height: 1.6;
+}
+
+.step-connector {
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bb-orange-primary), transparent);
+    flex-shrink: 0;
+}
+
+/* ===== 7. CTA SECTION ===== */
+.cta-section {
+    padding: 100px var(--bb-space-lg);
+    text-align: center;
+    background: linear-gradient(135deg, var(--bb-red-dark) 0%, var(--bb-orange-dark) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.cta-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: var(--bb-space-lg);
+    color: white;
+}
+
+.cta-subtitle {
+    font-size: 1.125rem;
+    color: var(--bb-gray-900);
+    margin-bottom: var(--bb-space-2xl);
+}
+
+.cta-login-link {
+    margin-top: var(--bb-space-lg);
+    color: var(--bb-gray-900);
+    font-size: 0.9rem;
+}
+
+.cta-login-link a {
+    color: white;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+.cta-login-link a:hover {
+    color: var(--bb-gray-200);
+}
+
+/* ===== 8. FOOTER ===== */
+.footer {
+    padding: var(--bb-space-2xl) var(--bb-space-lg);
+    text-align: center;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--bb-gray-100);
+}
+
+.footer-logo {
+    width: 50px;
+    height: auto;
+    margin-bottom: var(--bb-space-md);
+    opacity: 0.8;
+}
+
+.footer-tagline {
+    color: var(--bb-gray-700);
+    margin-bottom: var(--bb-space-sm);
+    font-size: 0.9rem;
+}
+
+.footer-copyright {
+    color: var(--bb-gray-700);
+    font-size: 0.85rem;
+}
+
+/* ===== 9. ANIMATIONS (from sitenew.css) ===== */
+@keyframes bb-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bb-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.85;
+        transform: scale(1.02);
+    }
+}
+
+@keyframes bb-slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ===== 10. RESPONSIVE DESIGN ===== */
+
+/* Tablet: 768px - 1024px */
+@media (max-width: 1024px) {
+    .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bb-space-lg);
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+    }
+
+    .section-title {
+        font-size: 2rem;
+    }
+
+    .steps {
+        flex-direction: column;
+    }
+
+    .step-connector {
+        width: 2px;
+        height: 40px;
+        background: linear-gradient(180deg, transparent, var(--bb-orange-primary), transparent);
+    }
+}
+
+/* Mobile: < 768px */
+@media (max-width: 768px) {
+    .hero {
+        padding: var(--bb-space-2xl) var(--bb-space-lg);
+        min-height: auto;
+    }
+
+    .hero-logo {
+        width: 150px;
+        margin-bottom: var(--bb-space-lg);
+    }
+
+    .hero-title {
+        font-size: 2rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+        gap: var(--bb-space-md);
+    }
+
+    .btn {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+        gap: var(--bb-space-lg);
+    }
+
+    .features,
+    .how-it-works {
+        padding: 60px var(--bb-space-lg);
+    }
+
+    .section-title {
+        font-size: 1.75rem;
+        margin-bottom: 40px;
+    }
+
+    .feature-card {
+        padding: var(--bb-space-lg);
+    }
+
+    .feature-icon {
+        font-size: 2em;
+    }
+
+    .cta-section {
+        padding: 60px var(--bb-space-lg);
+    }
+
+    .cta-title {
+        font-size: 1.75rem;
+    }
+
+    .cta-subtitle {
+        font-size: 1rem;
+    }
+}
+
+/* Extra small mobile: < 480px */
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+    }
+
+    .feature-title {
+        font-size: 1.25rem;
+    }
+
+    .step-title {
+        font-size: 1.125rem;
+    }
+
+    .cta-title {
+        font-size: 1.5rem;
+    }
+}

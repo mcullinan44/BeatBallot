@@ -1,0 +1,141 @@
+﻿
+@page "/login"
+@using BeatBallot.Web.Services.Local
+
+@inject ITokenProvider TokenProvider
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+@if (_isCheckingAuth)
+{
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-content" style="text-align:center;">
+                <span class="loading-spinner"></span>
+                <p>Checking your session...</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="logo-section">
+                <div class="logo"><img src="header-icon-small.png" /></div>
+                <div class="logo-subtitle"><img src="image 2.png"/></div>
+            </div>
+        </div>
+
+        <div class="auth-content">
+            <div class="spotify-section">
+                <div class="spotify-intro">
+                    <h3>Connect with Spotify</h3>
+                    <p>Sign in with your Spotify account to access your music library and create the perfect playlist experience.</p>
+                </div>
+
+                <button class="spotify-login-btn" @onclick="LoginWithSpotify" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span class="loading-spinner"></span>
+                        <span>Connecting to Spotify...</span>
+                    }
+                    else
+                    {
+                        <div class="spotify-btn-content">
+                            <div class="spotify-logo">🎵</div>
+                            <span>Continue with Spotify</span>
+                        </div>
+                    }
+                </button>
+
+                <div class="spotify-features">
+                    <div class="feature-item">
+                        <span class="feature-icon">🎶</span>
+                        <span>Take requests from your audience</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🗳️</span>
+                        <span>Let audiences vote on tracks</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-footer">
+                <p>Don't have a Spotify account? <a href="https://www.spotify.com/us/signup" target="_blank" class="spotify-signup-link">Create one here</a></p>
+                <p class="privacy-note">We only access your public profile and music library. Your personal data stays private.</p>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@code {
+    private bool _isLoading;
+    private bool _isCheckingAuth = true;
+    private bool _hasCheckedAuth;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _hasCheckedAuth) return;
+        _hasCheckedAuth = true;
+
+        if (!string.IsNullOrEmpty(await TokenProvider.GetAccessTokenAsync()))
+        {
+            NavigationManager.NavigateTo("/dj/startsession", forceLoad: true);
+            return;
+        }
+
+        _isCheckingAuth = false;
+        StateHasChanged();
+    }
+
+    private async Task LoginWithSpotify()
+    {
+        if (_isLoading) return;
+        
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Generate state for security
+            var state = GenerateRandomState();
+            var baseUrl = Configuration["BaseUrl"]?.TrimEnd('/') ?? NavigationManager.BaseUri.TrimEnd('/');
+            var redirectUri = $"{baseUrl}/authcallback";
+            
+            // Get authorization URL from service
+            var authUrl = TokenProvider.GetAuthorizationUrl(state, redirectUri);
+            
+            // Store state for validation after callback
+            await TokenProvider.StoreStateAsync(state);
+            
+            // Redirect to Spotify authorization
+            //NavigationManager.NavigateTo(authUrl, forceLoad: false);
+
+            await JSRuntime.InvokeVoidAsync("window.location.assign", authUrl);
+            //await JSRuntime.InvokeVoidAsync("window.location.assign", "https://www.google.com");
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Spotify login error: {ex.Message}");
+            // TODO: Show error message to user
+        }
+        finally
+        {
+            _isLoading = false;
+            //StateHasChanged();
+        }
+    }
+
+    private string GenerateRandomState()
+    {
+        var random = new Random();
+        const string CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Repeat(CHARS, 32)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+}

@@ -1,0 +1,247 @@
+﻿@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+}
+
+.auth-card {
+    background: #1A252F;
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 450px;
+    overflow: hidden;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.auth-header {
+    background: linear-gradient(45deg, #e74c3c, #f39c12);
+    padding: 25px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-logo {
+    font-size: 2.2em;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 5px;
+}
+
+.auth-subtitle {
+    color: rgba(255,255,255,0.9);
+    font-size: 1em;
+}
+
+.auth-content {
+    padding: 30px;
+}
+
+.spotify-section {
+    text-align: center;
+}
+
+.spotify-intro {
+    margin-bottom: 30px;
+}
+
+.spotify-icon {
+    font-size: 3.5em;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.spotify-intro h3 {
+    color: white;
+    font-size: 1.5em;
+    margin-bottom: 12px;
+    font-weight: bold;
+}
+
+.spotify-intro p {
+    color: rgba(255,255,255,0.8);
+    line-height: 1.5;
+    font-size: 0.95em;
+    margin-bottom: 0;
+}
+
+.spotify-register-btn {
+    width: 100%;
+    padding: 18px 20px;
+    background: #1db954;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-weight: bold;
+    font-size: 1.1em;
+    color: white;
+    box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+}
+
+    .spotify-register-btn:hover:not(:disabled) {
+        background: #1ed760;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
+    }
+
+    .spotify-register-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+.spotify-btn-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.spotify-logo {
+    font-size: 1.3em;
+}
+
+.loading-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.spotify-benefits {
+    text-align: left;
+    margin-bottom: 25px;
+}
+
+    .spotify-benefits h4 {
+        color: white;
+        font-size: 1.1em;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+.benefit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 18px;
+    padding: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.benefit-icon {
+    font-size: 1.5em;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.benefit-text {
+    flex: 1;
+}
+
+    .benefit-text strong {
+        color: white;
+        font-size: 0.95em;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .benefit-text p {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.85em;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+.auth-footer {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+    .auth-footer p {
+        color: rgba(255,255,255,0.7);
+        margin: 0 0 10px 0;
+        font-size: 0.9em;
+        line-height: 1.4;
+    }
+
+.login-link {
+    color: #1db954;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+    .login-link:hover {
+        color: #1ed760;
+        text-decoration: underline;
+    }
+
+.privacy-note {
+    font-size: 0.8em !important;
+    color: rgba(255,255,255,0.6) !important;
+    font-style: italic;
+    margin-bottom: 15px !important;
+}
+
+.terms-note {
+    font-size: 0.8em !important;
+    color: rgba(255,255,255,0.6) !important;
+}
+
+.terms-link {
+    color: #f39c12;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+    .terms-link:hover {
+        color: #e67e22;
+        text-decoration: underline;
+    }
+
+/* Custom scrollbar for the auth card */
+.auth-card::-webkit-scrollbar {
+    width: 6px;
+}
+
+.auth-card::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+}
+
+.auth-card::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #e74c3c, #f39c12);
+    border-radius: 3px;
+}

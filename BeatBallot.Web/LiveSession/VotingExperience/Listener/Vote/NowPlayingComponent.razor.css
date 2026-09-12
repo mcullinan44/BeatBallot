@@ -1,0 +1,45 @@
+﻿.now-playing {
+    padding: 20px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+    .now-playing h3 {
+        margin-bottom: 10px;
+        color: #f39c12;
+        font-size: 1.2em;
+    }
+
+.current-song {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.artist-name {
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 10px;
+}
+
+.time-info {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.9em;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c, #f39c12);
+    transition: width 0.3s ease;
+    animation: progress-flow 3s ease-in-out infinite;
+}

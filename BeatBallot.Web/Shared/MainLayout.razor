@@ -1,0 +1,34 @@
+﻿@inherits LayoutComponentBase
+<PageTitle>BeatBallot</PageTitle>
+<div class="page">
+    <main>
+        <article class="content px-4">
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent>
+                    <p>Sorry...something went wrong :(</p>
+                </ErrorContent>
+            </ErrorBoundary>
+        </article>
+    </main>
+</div>
+
+@code
+{
+
+    protected override Task OnInitializedAsync()
+    {
+        try
+        {
+            return base.OnInitializedAsync();
+        }
+        catch (Exception e)
+        {
+
+        }
+        return null;
+
+    }
+}

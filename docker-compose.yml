@@ -1,0 +1,30 @@
+services:
+  beatballot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5078:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      BaseUrl: "http://localhost:5078"
+
+      # Override connection string if you want a local SQLite file instead of Azure SQL:
+      # ConnectionStrings__DefaultConnection: "Data Source=/app/data/beatballot.db"
+
+      # Spotify — must match a redirect URI registered in your Spotify app dashboard
+      Spotify__ClientId: "${SPOTIFY_CLIENT_ID}"
+      Spotify__ClientSecret: "${SPOTIFY_CLIENT_SECRET}"
+      Spotify__RedirectUri: "/authcallback"
+
+      # Admin panel
+      AdminSettings__Password: "${ADMIN_PASSWORD:-admin}"
+      AdminSettings__SessionTimeoutMinutes: "60"
+
+      # Stripe (optional — leave as test keys for local)
+      Stripe__PublishableKey: "${STRIPE_PUBLISHABLE_KEY:-pk_test_placeholder}"
+      Stripe__SecretKey: "${STRIPE_SECRET_KEY:-sk_test_placeholder}"
+      Stripe__WebhookSecret: "${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}"
+    # Uncomment to persist a local SQLite database across restarts:
+    # volumes:
+    #   - ./data:/app/data

@@ -1,0 +1,43 @@
+﻿@* SongComponent.razor *@
+
+<div class="song-option @(HasUserVoted ? "voted" : "")" @onclick="HandleVote">
+    <div class="song-info">
+        <div class="song-details">
+            <h4>@SongTitle</h4>
+            <p>@ArtistName</p>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div class="vote-count">@VoteCount</div>
+            <button class="vote-btn @(UserVoteCount > 0 ? "multi-vote" : "")"
+                    disabled="@(VotesRemaining <= 0)">
+                @GetVoteButtonText()
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SongTitle { get; set; } = "";
+    [Parameter] public string ArtistName { get; set; } = "";
+    [Parameter] public int VoteCount { get; set; } = 0;
+    [Parameter] public int UserVoteCount { get; set; } = 0;
+    [Parameter] public int VotesRemaining { get; set; } = 10;
+    [Parameter] public EventCallback OnVote { get; set; }
+
+    private bool HasUserVoted => UserVoteCount > 0;
+
+    private async Task HandleVote()
+    {
+        if (VotesRemaining > 0)
+        {
+            await OnVote.InvokeAsync();
+        }
+    }
+
+    private string GetVoteButtonText()
+    {
+        if (UserVoteCount == 0) return "Vote";
+        if (UserVoteCount == 1) return "Voted!";
+        return $"Voted {UserVoteCount}x";
+    }
+}

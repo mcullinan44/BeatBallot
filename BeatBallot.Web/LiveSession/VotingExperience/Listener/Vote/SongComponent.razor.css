@@ -1,0 +1,83 @@
+﻿.song-option {
+    background: rgba(255,255,255,0.05);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+    .song-option:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        background: rgba(255,255,255,0.1);
+    }
+
+    .song-option.voted {
+        border-color: #f39c12;
+        background: linear-gradient(45deg, rgba(231,76,60,0.3), rgba(243,156,18,0.3));
+        animation: vote-flash 2s ease-out;
+    }
+
+.song-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+}
+
+.song-details h4 {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    margin: 0;
+}
+
+.song-details p {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.9em;
+    margin: 0;
+    margin-top: 5px;
+}
+
+.vote-count {
+    background: rgba(243,156,18,0.9);
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+    min-width: 40px;
+    text-align: center;
+}
+
+.vote-btn {
+    background: linear-gradient(45deg, #e74c3c, #f39c12);
+    border: none;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: 15px;
+    font-size: 0.9em;
+}
+
+    .vote-btn:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(231,76,60,0.4);
+    }
+
+    .vote-btn:disabled {
+        background: rgba(255,255,255,0.3);
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .vote-btn.multi-vote {
+        background: linear-gradient(45deg, #27ae60, #2ecc71);
+        animation: pulse-green 2s ease-in-out infinite;
+    }

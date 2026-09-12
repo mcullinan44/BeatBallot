@@ -1,0 +1,528 @@
+﻿@* TipJarComponent.razor - Fixed with proper disposal *@
+
+@using BeatBallot.Web.Services.Local
+@using Microsoft.AspNetCore.SignalR.Client
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
+
+<div class="tip-jar-container">
+    @if (_djPaymentSettings?.IsPaymentEnabled == true && _djPaymentSettings.ShowTipJar && !_isDisposed)
+    {
+        <div class="tip-jar">
+            <div class="tip-jar-header">
+                <h3 class="tip-jar-title">💰 Tip the DJ</h3>
+                @if (!string.IsNullOrEmpty(_djPaymentSettings.TipJarMessage))
+                {
+                    <p class="tip-jar-message">@_djPaymentSettings.TipJarMessage</p>
+                }
+            </div>
+
+            @if (!_showTipForm)
+            {
+                <div class="tip-preset-amounts">
+                    @foreach (var amount in GetPresetAmounts())
+                    {
+                        <button class="tip-preset-btn" @onclick="() => StartTip(amount)" disabled="@_isDisposed">
+                            $@amount.ToString("F0")
+                        </button>
+                    }
+                    <button class="tip-custom-btn" @onclick="() => ShowCustomTipForm()" disabled="@_isDisposed">
+                        Custom Amount
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="tip-form">
+                    <EditForm Model="_tipRequest" OnValidSubmit="ProcessTip">
+                        <DataAnnotationsValidator />
+
+                        <div class="form-group">
+                            <label for="amount">Tip Amount</label>
+                            <div class="amount-input">
+                                <span class="currency-symbol">$</span>
+                                <InputNumber @bind-Value="_tipRequest.Amount"
+                                             class="form-control amount-field"
+                                             min="@_djPaymentSettings.MinTipAmount"
+                                             max="@_djPaymentSettings.MaxTipAmount"
+                                             step="0.01"
+                                             disabled="@_isDisposed" />
+                            </div>
+                            <ValidationMessage For="@(() => _tipRequest.Amount)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="name">Your Name</label>
+                            <InputText @bind-Value="_tipRequest.TipperName"
+                                       class="form-control"
+                                       placeholder="Anonymous"
+                                       disabled="@_isDisposed" />
+                            <ValidationMessage For="@(() => _tipRequest.TipperName)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email (Optional)</label>
+                            <InputText @bind-Value="_tipRequest.TipperEmail"
+                                       class="form-control"
+                                       placeholder="your@email.com"
+                                       disabled="@_isDisposed" />
+                            <ValidationMessage For="@(() => _tipRequest.TipperEmail)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Message (Optional)</label>
+                            <InputTextArea @bind-Value="_tipRequest.Message"
+                                           class="form-control"
+                                           rows="2"
+                                           placeholder="Say something nice!"
+                                           disabled="@_isDisposed" />
+                            <ValidationMessage For="@(() => _tipRequest.Message)" />
+                        </div>
+
+                        <!-- Stripe Elements Container with unique ID -->
+                        <div class="form-group">
+                            <label for="card">Card Information</label>
+                            <div id="stripe-card-element-@_componentId" class="stripe-element">
+                                @if (!_stripeInitialized)
+                                {
+                                    <div class="loading-placeholder">Loading payment form...</div>
+                                }
+                            </div>
+                            <div id="stripe-card-errors-@_componentId" role="alert" class="stripe-errors"></div>
+                        </div>
+
+                        <div class="tip-form-actions">
+                            <button type="button"
+                                    class="btn btn-secondary"
+                                    @onclick="CancelTip"
+                                    disabled="@_isDisposed">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                    class="btn btn-primary"
+                                    disabled="@(_isProcessing || !_stripeInitialized || _isDisposed)">
+                                @if (_isProcessing)
+                                {
+                                    <span class="spinner"></span>
+                                    <span>Processing...</span>
+                                }
+                                else
+                                {
+                                    <span>Send Tip $@_tipRequest.Amount.ToString("F2")</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        </div>
+
+        @if (_sessionTips.Any() && !_isDisposed)
+        {
+            <div class="recent-tips">
+                <h4>Recent Tips</h4>
+                <div class="tips-list">
+                    @foreach (var tip in _sessionTips.OrderByDescending(t => t.CreatedAt).Take(5))
+                    {
+                        <div class="tip-item">
+                            <div class="tip-info">
+                                <span class="tipper-name">@tip.TipperName</span>
+                                <span class="tip-amount">$@tip.Amount.ToString("F2")</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(tip.Message))
+                            {
+                                <div class="tip-message">@tip.Message</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_statusMessage) && !_isDisposed)
+        {
+            <div class="status-message">
+                <button class="status-close" @onclick="ClearStatusMessage">&times;</button>
+                <span class="status-icon">ℹ️</span>
+                <span class="status-text">@_statusMessage</span>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .loading-placeholder {
+        padding: 12px;
+        background: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        border-radius: 4px;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .stripe-element {
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: white;
+        min-height: 40px;
+    }
+
+    .stripe-errors {
+        color: #dc3545;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+
+    .status-message {
+        position: relative;
+        padding: 10px 40px 10px 10px;
+        margin: 10px 0;
+        background: rgba(23, 162, 184, 0.9);
+        border-radius: 6px;
+        color: white;
+    }
+
+    .status-close {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0;
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Your existing styles... */
+</style>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+    [Parameter] public HubConnection? HubConnection { get; set; }
+
+    private DjPaymentSettings? _djPaymentSettings;
+    private TipRequest _tipRequest = new();
+    private List<Tip> _sessionTips = new();
+    private bool _showTipForm = false;
+    private bool _isProcessing = false;
+    private bool _stripeInitialized = false;
+    private bool _isDisposed = false;
+    private string _statusMessage = "";
+    private string _componentId = Guid.NewGuid().ToString("N")[..8]; // Unique ID for DOM elements
+
+    // Timer management
+    private Timer? _statusMessageTimer;
+    private readonly object _timerLock = new object();
+
+    // Component lifecycle management
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!_isDisposed)
+            {
+                await LoadDjPaymentSettings();
+                await LoadSessionTips();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_isDisposed) return;
+
+        try
+        {
+            if (firstRender && _showTipForm && !_stripeInitialized)
+            {
+                await InitializeStripeAfterRender();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnAfterRenderAsync: {ex.Message}");
+        }
+    }
+
+    private async Task InitializeStripeAfterRender()
+    {
+        if (_isDisposed) return;
+
+        try
+        {
+            var stripePublishableKey = Configuration["Stripe:PublishableKey"];
+
+            // Wait a bit for DOM to fully render
+            await Task.Delay(100);
+
+            if (_isDisposed) return; // Check again after delay
+
+            // Use unique element ID
+            var elementId = $"stripe-card-element-{_componentId}";
+            var errorsId = $"stripe-card-errors-{_componentId}";
+
+            var success = await JSRuntime.InvokeAsync<bool>("initializeStripeWithId",
+                stripePublishableKey, elementId, errorsId);
+
+            if (!_isDisposed)
+            {
+                _stripeInitialized = success;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing Stripe: {ex.Message}");
+            if (!_isDisposed)
+            {
+                _stripeInitialized = false;
+            }
+        }
+    }
+
+    private async Task LoadDjPaymentSettings()
+    {
+        if (_isDisposed) return;
+
+        try
+        {
+            // Mock for testing - replace with actual service call
+            _djPaymentSettings = new DjPaymentSettings
+            {
+                IsPaymentEnabled = true,
+                ShowTipJar = true,
+                MinTipAmount = 1.00m,
+                MaxTipAmount = 100.00m,
+                PresetAmounts = "1,5,10,20",
+                TipJarMessage = "Thank you for your support!"
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading DJ payment settings: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSessionTips()
+    {
+        if (_isDisposed) return;
+
+        try
+        {
+            _sessionTips = new List<Tip>(); // Mock empty list
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading session tips: {ex.Message}");
+        }
+    }
+
+    private List<decimal> GetPresetAmounts()
+    {
+        if (_djPaymentSettings?.PresetAmounts == null) return new List<decimal> { 1, 5, 10, 20 };
+
+        return _djPaymentSettings.PresetAmounts
+            .Split(',')
+            .Select(a => decimal.TryParse(a.Trim(), out var amount) ? amount : 0)
+            .Where(a => a > 0)
+            .ToList();
+    }
+
+    private async Task StartTip(decimal amount)
+    {
+        if (_isDisposed) return;
+
+        _tipRequest = new TipRequest { Amount = amount };
+        _showTipForm = true;
+        _stripeInitialized = false;
+
+        StateHasChanged();
+
+        // Initialize Stripe after the form is rendered
+        if (!_isDisposed)
+        {
+            await Task.Delay(50);
+            await InitializeStripeAfterRender();
+        }
+    }
+
+    private async Task ShowCustomTipForm()
+    {
+        if (_isDisposed) return;
+
+        _tipRequest = new TipRequest();
+        _showTipForm = true;
+        _stripeInitialized = false;
+
+        StateHasChanged();
+
+        if (!_isDisposed)
+        {
+            await Task.Delay(50);
+            await InitializeStripeAfterRender();
+        }
+    }
+
+    private async Task CancelTip()
+    {
+        if (_isDisposed) return;
+
+        await CleanupStripe();
+        _showTipForm = false;
+        _stripeInitialized = false;
+        _tipRequest = new TipRequest();
+    }
+
+    private async Task ProcessTip()
+    {
+        if (_isDisposed || !_stripeInitialized) return;
+
+        try
+        {
+            _isProcessing = true;
+            StateHasChanged();
+
+            // Mock payment processing
+            await Task.Delay(2000); // Simulate processing time
+
+            if (_isDisposed) return;
+
+            // Mock success
+            var success = true;
+
+            if (success)
+            {
+                // Notify DJ via SignalR
+                if (HubConnection?.State == HubConnectionState.Connected)
+                {
+                    // await HubConnection.SendAsync("NewTip", SessionId, tip);
+                }
+
+                // Reset form
+                await CancelTip();
+                await LoadSessionTips();
+
+                if (!_isDisposed)
+                {
+                    SetStatusMessageWithTimer("Thank you for your tip! 🎉", 5000);
+                }
+            }
+            else
+            {
+                if (!_isDisposed)
+                {
+                    SetStatusMessageWithTimer("Payment failed. Please try again.", 5000);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_isDisposed)
+            {
+                SetStatusMessageWithTimer($"Error processing tip: {ex.Message}", 5000);
+            }
+            Console.WriteLine($"Error processing tip: {ex.Message}");
+        }
+        finally
+        {
+            if (!_isDisposed)
+            {
+                _isProcessing = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void SetStatusMessageWithTimer(string message, int delayMs)
+    {
+        if (_isDisposed) return;
+
+        _statusMessage = message;
+        StateHasChanged();
+
+        // Clear any existing timer
+        lock (_timerLock)
+        {
+            _statusMessageTimer?.Dispose();
+            _statusMessageTimer = new Timer(_ =>
+            {
+                if (!_isDisposed)
+                {
+                    InvokeAsync(() =>
+                    {
+                        if (!_isDisposed)
+                        {
+                            _statusMessage = "";
+                            StateHasChanged();
+                        }
+                    });
+                }
+            }, null, delayMs, Timeout.Infinite);
+        }
+    }
+
+    private void ClearStatusMessage()
+    {
+        if (_isDisposed) return;
+
+        lock (_timerLock)
+        {
+            _statusMessageTimer?.Dispose();
+            _statusMessageTimer = null;
+        }
+
+        _statusMessage = "";
+        StateHasChanged();
+    }
+
+    private async Task CleanupStripe()
+    {
+        if (_stripeInitialized)
+        {
+            try
+            {
+                var elementId = $"stripe-card-element-{_componentId}";
+                await JSRuntime.InvokeVoidAsync("cleanupStripe", elementId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error cleaning up Stripe: {ex.Message}");
+            }
+        }
+    }
+
+    // Proper disposal
+    public async ValueTask DisposeAsync()
+    {
+        if (_isDisposed) return;
+
+        _isDisposed = true;
+
+        try
+        {
+            // Clear timers
+            lock (_timerLock)
+            {
+                _statusMessageTimer?.Dispose();
+                _statusMessageTimer = null;
+            }
+
+            // Cleanup Stripe
+            await CleanupStripe();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during disposal: {ex.Message}");
+        }
+    }
+}

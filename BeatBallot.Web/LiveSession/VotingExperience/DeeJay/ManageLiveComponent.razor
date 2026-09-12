@@ -1,0 +1,691 @@
+﻿@* ManageLiveComponent.razor *@
+@page "/dj/session/{PlaylistId}/{SessionId}/manage"
+
+@layout DJLayoutComponent
+@using BeatBallot.Web.Home.DeeJay
+@using BeatBallot.Web.Services.Local
+@using BeatBallot.Web.Services.Spotify
+@using Microsoft.AspNetCore.SignalR.Client
+@using SpotifyAPI.Web
+@inject NavigationManager Navigation
+@inject SpotifyService SpotifyService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject IPlaylistVoteCacheService PlaylistVoteCacheService
+@inject ITokenProvider TokenProvider
+
+@implements IAsyncDisposable
+
+
+@if (_isLoading)
+{
+    <div class="loading-container">
+        <p>Loading playlist...</p>
+    </div>
+}
+else
+{
+    <div class="manage-live-page">
+    <div class="page-header">
+        <div class="header-content">
+            <div class="back-nav">
+                <button class="back-btn" @onclick="GoBack">
+                    <span class="back-icon">←</span>
+                    <span>Back to Playlists</span>
+                </button>
+            </div>
+            <div class="session-info">
+                <h1 class="page-title">Managing Live Session</h1>
+                <div class="session-details">
+                    <div class="playlist-name">
+                        <span class="label">Playlist:</span>
+                        <span class="value">@_currentPlaylist?.Name</span>
+                    </div>
+                    <div class="session-start">
+                        <span class="label">Started:</span>
+                        <span class="value">@_sessionStartTime.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
+                    <div class="session-duration">
+                        <span class="label">Duration:</span>
+                        <span class="value" id="duration-display">@GetSessionDuration()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="header-actions">
+
+            <button class="stop-btn" @onclick="ShowStopConfirmation">
+                <span class="btn-icon">⏹️</span>
+                <span>Stop Voting</span>
+            </button>
+        </div>
+    </div>
+    <!-- Add this status message section after your page-header -->
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="status-message">
+            <div class="status-content">
+                <span class="status-icon">ℹ️</span>
+                <span class="status-text">@_statusMessage</span>
+                <button class="status-close" @onclick="ClearStatusMessage">&times;</button>
+            </div>
+        </div>
+    }
+
+    <!-- QR Code Section for Voting URL -->
+    <div class="qr-code-section">
+        <div class="qr-info">
+            <h3 class="qr-title">Audience Voting Setup</h3>
+            <p class="qr-description">Copy this URL and share in a browser tab so your listeners can scan the QR Code and begin voting.</p>
+            <div class="voting-url">
+                <span class="url-label">QR Display URL:</span>
+                <a href="@GetQrDisplayUrl()" target="_blank" class="voting-link">@GetQrDisplayUrl()</a>
+            </div>
+        </div>
+        <div class="qr-placeholder">
+            <div class="qr-mock">
+                <div class="qr-text">QR DISPLAY</div>
+                <div class="session-id">Session: @SessionId.Substring(0, 8)...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="live-stats">
+        <div class="stat-card">
+            <div class="stat-icon">🗳️</div>
+            <div class="stat-content">
+                <div class="stat-number">@_totalVotes</div>
+                <div class="stat-label">Total Votes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <div class="stat-number">@(_activeListeners <= 2 ? 0 : _activeListeners - 2)</div>
+                <div class="stat-label">Active Listeners</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🎵</div>
+            <div class="stat-content">
+                <div class="stat-number">@_songs.Count</div>
+                <div class="stat-label">Total Songs</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="songs-section">
+        <div class="songs-header">
+            <h2 class="section-title">@_currentPlaylist?.Name</h2>
+
+
+            <div class="sort-info">
+                <button class="control-btn sort @(_isSortedByVotes ? "active" : "")" @onclick="SortByVotes">
+                    <span class="btn-icon">🔄</span>
+                    <span>Sort by Votes</span>
+                </button>
+                @if (_isSortedByVotes)
+                {
+                    <span class="sort-indicator">📊 Sorted by votes (highest first)</span>
+                }
+                else
+                {
+                    <span class="sort-indicator">📝 Original playlist order</span>
+                }
+            </div>
+        </div>
+
+        <div class="songs-list">
+            @foreach (var song in GetDisplaySongs())
+            {
+                <div class="song-item @(song.SpotifyUrl == _currentlyPlayingSongId ? "currently-playing" : "")">
+                    <div class="song-position">
+                        @if (song.SpotifyUrl == _currentlyPlayingSongId)
+                        {
+                            <span class="playing-indicator">♪</span>
+                        }
+                        else
+                        {
+                            <span class="position-number">@(GetDisplaySongs().ToList().IndexOf(song) + 1)</span>
+                        }
+                    </div>
+
+                    <div class="song-info">
+                        <div class="song-title">@song.Title</div>
+                        <div class="song-artist">@song.Artist</div>
+                    </div>
+
+                    <div class="song-stats">
+                        <div class="vote-count">
+                            <span class="vote-number">@song.VoteCount</span>
+                            <span class="vote-label">votes</span>
+                        </div>
+                        @if (song.VoteCount > 0)
+                        {
+                            <div class="vote-percentage">
+                                @(Math.Round((double)song.VoteCount / _totalVotes * 100, 1))%
+                            </div>
+                        }
+                    </div>
+
+
+                    <div class="song-actions">
+                        @if (song.SpotifyUrl == _currentlyPlayingSongId)
+                        {
+                            @if (_isPlaying)
+                            {
+                                <button class="play-btn pause-state" @onclick="() => PauseSong()">
+                                    <span class="btn-icon">⏸️</span>
+                                    <span>Pause</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="play-btn resume-state" @onclick="() => ResumeSong()">
+                                    <span class="btn-icon">▶️</span>
+                                    <span>Resume</span>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <button class="play-btn" @onclick="() => PlaySong(song.SpotifyUrl)">
+                                <span class="btn-icon">▶️</span>
+                                <span>Play Now</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Stop Voting Confirmation Modal -->
+    @if (_showStopConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelStop">
+            <div class="confirmation-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Stop Live Voting?</h3>
+                    <button class="close-modal-btn" @onclick="CancelStop">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="warning-icon">⚠️</div>
+                    <p class="warning-message">
+                        Are you sure? Listeners will have to scan a new QR code to resume voting on a new session.
+                    </p>
+                    <p class="session-summary">
+                        Session has been running for <strong>@GetSessionDuration()</strong> with <strong>@_totalVotes total votes</strong>.
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="cancel-btn" @onclick="CancelStop">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="confirm-btn stop" @onclick="ConfirmStop">
+                        <span>Stop Voting</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+
+
+    <!-- Add this device selector modal at the end of your component, before the closing div -->
+    @if (_showDeviceSelector)
+    {
+        <div class="modal-overlay" @onclick="CancelDeviceSelector">
+            <div class="device-selector-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Select Spotify Device</h3>
+                    <button class="close-modal-btn" @onclick="CancelDeviceSelector">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="device-icon">🎵</div>
+                    <p class="device-message">
+                        Choose which Spotify device to use for playback:
+                    </p>
+
+                    <div class="devices-list">
+                        @foreach (var device in _availableDevices)
+                        {
+                            <button class="device-option @(device.IsActive ? "active" : "")"
+                                    @onclick="() => SelectDevice(device.Id)">
+                                <div class="device-info">
+                                    <span class="device-name">@device.Name</span>
+                                    <span class="device-type">@GetDeviceTypeIcon(device.Type) @device.Type</span>
+                                    @if (device.IsActive)
+                                    {
+                                        <span class="active-indicator">Currently Active</span>
+                                    }
+                                </div>
+                                <div class="device-volume">
+                                    @if (device.VolumePercent.HasValue)
+                                    {
+                                        <span class="volume-text">🔊 @device.VolumePercent%</span>
+                                    }
+                                </div>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="device-help">
+                        <p class="help-text">
+                            💡 Don't see your device? Make sure Spotify is open and playing on the device you want to use.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    </div>
+}
+
+@code {
+    
+    [Parameter] public string PlaylistId { get; set; } = "";
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private HubConnection? _hubConnection;
+    private PlaylistModel? _currentPlaylist;
+    private List<PlaylistSongModel> _songs = new();
+    private readonly DateTime _sessionStartTime = DateTime.Now;
+    private bool _isPlaying = true;
+    private bool _isSortedByVotes;
+    private bool _showStopConfirmation;
+    private string _currentlyPlayingSongId;
+    private int _totalVotes;
+    private int _activeListeners;
+    private string _statusMessage = "";
+    private bool _showDeviceSelector;
+    private List<Device> _availableDevices = new();
+    private bool _isLoading = true;
+
+    // Add this helper method to your @code section
+    private string GetDeviceTypeIcon(string deviceType)
+    {
+        return deviceType?.ToLower() switch
+        {
+            "computer" => "💻",
+            "smartphone" => "📱",
+            "speaker" => "🔊",
+            "tv" => "📺",
+            "automobile" => "🚗",
+            "tablet" => "📱",
+            _ => "🎵"
+        };
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        string token = await TokenProvider.GetAccessTokenAsync();
+
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/login");
+        }
+
+        
+        // Validate session ID
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            Navigation.NavigateTo("/dj/startsession");
+            return;
+        }
+
+            await LoadPlaylistSessionData();
+            await ConfigurePlaylistSignalR();
+
+        StartDurationTimer();
+    }
+
+    private void ClearStatusMessage()
+    {
+        _statusMessage = "";
+        StateHasChanged();
+    }
+
+
+    private async Task LoadPlaylistSessionData()
+    {
+        _currentPlaylist = new PlaylistModel();
+
+        _songs = [];
+
+        Paging<PlaylistTrack<IPlayableItem>> spotifySongList = await SpotifyService.GetSongsforPlaylistAsync(PlaylistId);
+        Paging<FullPlaylist> t = await SpotifyService.GetPlaylistsAsync();
+
+        if(t.Items is null || t.Items.All(i => i.Id != PlaylistId))
+        {
+            Navigation.NavigateTo("/dj/startsession");
+            return;
+        }
+
+        _currentPlaylist.Name = t.Items.Find(i => i.Id == PlaylistId).Name;
+
+
+        foreach (PlaylistTrack<IPlayableItem> item in spotifySongList.Items)
+        {
+            if (item.Track is FullTrack track)
+            {
+                PlaylistSongModel song = new PlaylistSongModel();
+                song.Title = track.Name;
+                song.Artist = string.Join(", ", track.Artists.Select(a => a.Name));
+                song.Album = track.Album.Name;
+                song.SpotifyUrl = track.ExternalUrls["spotify"];
+                song.Id = track.Id;
+                song.IsExplicit = track.Explicit;
+                song.ImageUrl = track.Album.Images?.FirstOrDefault()?.Url;
+                _songs.Add(song);
+            }
+        }
+        await PlaylistVoteCacheService.SetCurrentPlaylistAsync(PlaylistId, SessionId, _songs, "mc");
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+
+    private async Task ConfigurePlaylistSignalR()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/votingHub"))
+            .Build();
+        await _hubConnection.StartAsync();
+        await _hubConnection.SendAsync("JoinPlaylistGroup", PlaylistId, SessionId);
+        // Listen for session-specific vote updates from participants
+        _hubConnection.On<string, int>("VoteCountUpdated", async (songId, newVoteCount) =>
+        {
+            await VoteCountUpdated(songId, newVoteCount);
+        });
+        // Listen for listener count updates for this session
+        _hubConnection.On<int>("UpdateListenerCount", async (count) =>
+        {
+            _activeListeners = count;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task VoteCountUpdated(string songId, int newVoteCount)
+    {
+        var song = _songs.FirstOrDefault(s => s.Id == songId);
+        if (song != null)
+        {
+            song.VoteCount = newVoteCount;
+            _totalVotes = _songs.Sum(s => s.VoteCount);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+
+
+    private async Task ShowDeviceSelector()
+    {
+        var deviceResponse = await SpotifyService.GetAvailableDevicesAsync();
+
+        if (deviceResponse.Success && deviceResponse.Devices.Any())
+        {
+            _availableDevices = deviceResponse.Devices;
+            _showDeviceSelector = true;
+        }
+        else
+        {
+            _statusMessage = "No Spotify devices found. Please open Spotify on a device (desktop, mobile, or web player) and try again.";
+        }
+    }
+
+    private async Task SelectDevice(string deviceId)
+    {
+        var success = await SpotifyService.ActivateDeviceAsync(deviceId);
+
+        if (success)
+        {
+            var deviceName = _availableDevices.FirstOrDefault(d => d.Id == deviceId)?.Name ?? "device";
+            _statusMessage = $"Activated {deviceName}. You can now play music.";
+            _showDeviceSelector = false;
+
+            // Clear message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _statusMessage = "";
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            _statusMessage = "Failed to activate device. Please try again.";
+        }
+
+        StateHasChanged();
+    }
+
+    private void CancelDeviceSelector()
+    {
+        _showDeviceSelector = false;
+        StateHasChanged();
+    }
+
+
+
+    private async Task PlaySong(string spotifyUri)
+    {
+        try
+        {
+            _currentlyPlayingSongId = spotifyUri;
+            _isPlaying = true;
+
+            var result = await SpotifyService.PlaySongWithDeviceCheckAsync(spotifyUri);
+
+            if (result.Success)
+            {
+                if (!string.IsNullOrEmpty(result.ActivatedDevice))
+                {
+                    _statusMessage = $"Activated {result.ActivatedDevice} and started playing";
+                    // Clear message after 3 seconds
+                    _ = Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        _statusMessage = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                }
+            }
+            else
+            {
+                _currentlyPlayingSongId = "";
+                _isPlaying = false;
+
+                if (result.RequiresUserAction)
+                {
+                    await ShowDeviceSelector();
+                }
+                else
+                {
+                    _statusMessage = result.Message;
+                }
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _currentlyPlayingSongId = "";
+            _isPlaying = false;
+            _statusMessage = $"Failed to play song: {ex.Message}";
+            Console.WriteLine($"Failed to play song: {ex.Message}");
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task PauseSong()
+    {
+        try
+        {
+            var result = await SpotifyService.PausePlaybackWithDeviceCheckAsync();
+            _isPlaying = false;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to pause: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResumeSong()
+    {
+        try
+        {
+            var result = await SpotifyService.ResumePlaybackWithDeviceCheckAsync();
+
+            if (result.Success)
+            {
+                _isPlaying = true;
+
+                if (!string.IsNullOrEmpty(result.ActivatedDevice))
+                {
+                    _statusMessage = $"Activated {result.ActivatedDevice} and resumed playback";
+                    _ = Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        _statusMessage = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                }
+            }
+            else
+            {
+                if (result.RequiresUserAction)
+                {
+                    await ShowDeviceSelector();
+                }
+
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to resume: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+
+    // If your SpotifyService doesn't have ResumePlaybackAsync, you can use this alternative:
+    // private async Task ResumeSong()
+    // {
+    //     _isPlaying = true;
+    //     await SpotifyService.PlaySongAsync(_currentlyPlayingSongId);
+    //     StateHasChanged();
+    // }
+
+    private string GetQrDisplayUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/qr/{PlaylistId}/{SessionId}";
+    }
+
+    private IEnumerable<PlaylistSongModel> GetDisplaySongs()
+    {
+        return _isSortedByVotes
+            ? _songs.OrderByDescending(s => s.VoteCount)
+            : _songs;
+    }
+
+    private void SortByVotes()
+    {
+        _isSortedByVotes = !_isSortedByVotes;
+        StateHasChanged();
+    }
+
+    private async Task TogglePlayPause()
+    {
+        _isPlaying = !_isPlaying;
+
+        
+        await SpotifyService.PausePlaybackAsync();
+
+
+        StateHasChanged();
+    }
+
+
+    private void ShowStopConfirmation()
+    {
+        _showStopConfirmation = true;
+    }
+
+    private void CancelStop()
+    {
+        _showStopConfirmation = false;
+    }
+
+    private async Task ConfirmStop()
+    {
+        _showStopConfirmation = false;
+        // Notify participants in this session that voting has stopped
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.SendAsync("NotifySessionVotingStopped", PlaylistId, SessionId);
+        }
+        // Navigate back to playlists
+        Navigation.NavigateTo("/dj/startsession");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo($"/dj/startsession/{PlaylistId}/{SessionId}");
+    }
+
+    private string GetSessionDuration()
+    {
+        var duration = DateTime.Now - _sessionStartTime;
+        return $"{duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+    }
+
+    private void StartDurationTimer()
+    {
+        var timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.SendAsync("LeaveDJSession", SessionId);
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    public class PlaylistModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int TrackCount { get; set; }
+    }
+
+    public class PlaylistSongModel
+    {
+        public string Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public string Album { get; set; }
+        public string SpotifyUrl { get; set; }
+        public bool IsExplicit { get; set; }
+        public int Popularity { get; set; }
+        public string ImageUrl { get; set; }
+        public int UserVoteCount { get; set; }
+        public int VoteCount { get; set; }
+        
+    }
+}

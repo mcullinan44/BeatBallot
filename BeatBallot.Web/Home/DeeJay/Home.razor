@@ -1,0 +1,128 @@
+﻿@* DJHomeComponent.razor *@
+@page "/home"
+@using BeatBallot.Web.Services.Local
+@using BeatBallot.Web.Services.Spotify
+@using SpotifyAPI.Web
+@inject SpotifyService SpotifyService
+@inject ITokenProvider TokenProvider
+@inject NavigationManager Navigation
+@layout DJLayoutComponent
+
+@if (_isInitialized)
+{
+    <div class="dj-home">
+        <div class="welcome-section">
+            <div class="welcome-content">
+                <h1 class="welcome-title">Welcome back, @_privateUser.DisplayName!</h1>
+                <p class="welcome-subtitle">Ready to create some amazing music experiences?</p>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int _totalPlaylists = 15;
+    private int _totalVotes = 3847;
+    private int _totalListeners = 1239;
+    private string _hoursPlayed = "47h";
+    private string _userName = "";
+    private PrivateUser _privateUser;
+    private bool _isInitialized;
+
+    private List<ActivityModel> _recentActivities = new()
+    {
+        new()
+        {
+            Id = 1,
+            Icon = "🎵",
+            Title = "New playlist created",
+            Description = "Friday Night Vibes playlist is ready for voting",
+            TimeAgo = "2 hours ago",
+            HasAction = true,
+            ActionText = "Go Live"
+        },
+        new()
+        {
+            Id = 2,
+            Icon = "🗳️",
+            Title = "High engagement session",
+            Description = "Dance Floor Hits received 247 votes in 3 hours",
+            TimeAgo = "5 hours ago",
+            HasAction = false,
+            ActionText = ""
+        },
+        new()
+        {
+            Id = 3,
+            Icon = "👥",
+            Title = "New listener milestone",
+            Description = "You've reached 1,200+ total listeners",
+            TimeAgo = "1 day ago",
+            HasAction = false,
+            ActionText = ""
+        }
+    };
+
+    private List<PlaylistPreviewModel> _popularPlaylists = new()
+    {
+        new()
+        {
+            Id = 1,
+            Name = "Friday Night Vibes",
+            TrackCount = 45,
+            TotalVotes = 1247,
+            IsLive = true
+        },
+        new()
+        {
+            Id = 2,
+            Name = "Dance Floor Hits",
+            TrackCount = 67,
+            TotalVotes = 2134,
+            IsLive = false
+        },
+        new()
+        {
+            Id = 3,
+            Name = "Chill Lounge",
+            TrackCount = 32,
+            TotalVotes = 856,
+            IsLive = false
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        
+        _privateUser = await SpotifyService.GetUser();
+
+        _isInitialized = true;
+  
+
+
+         await base.OnInitializedAsync();
+
+    }
+
+
+    public class ActivityModel
+    {
+        public int Id { get; set; }
+        public string Icon { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string TimeAgo { get; set; } = "";
+        public bool HasAction { get; set; }
+        public string ActionText { get; set; } = "";
+    }
+
+    public class PlaylistPreviewModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int TrackCount { get; set; }
+        public int TotalVotes { get; set; }
+        public bool IsLive { get; set; }
+    }
+}

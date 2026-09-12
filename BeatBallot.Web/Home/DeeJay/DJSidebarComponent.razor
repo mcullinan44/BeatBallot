@@ -1,0 +1,109 @@
+﻿@* DJSidebarComponent.razor *@
+
+<div class="dj-sidebar @(IsCollapsed ? "collapsed" : "")">
+    <div class="sidebar-header">
+        <button class="collapse-btn" @onclick="ToggleCollapse">
+            <span class="collapse-icon">@(IsCollapsed ? "▶" : "◀")</span>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-section">
+@*             <div class="nav-section">
+
+                <div class="nav-item action-item" @onclick="StartLiveSession">
+                    <div class="nav-icon">🎧</div>
+                    @if (!IsCollapsed)
+                    {
+                        <span class="nav-text">Go Live</span>
+                    }
+                </div>
+            </div> *@
+            
+            <div class="sidebar-nav-item @(ActivePage.Contains("/dj/startsession") ? "active" : "")"
+                 @onclick="@(() => NavigateToPage("/dj/startsession"))">
+                <div class="nav-icon">🎵</div>
+                @if (!IsCollapsed)
+                {
+                    <span class="nav-text">Start a Session</span>
+      
+                }
+            </div>
+
+       @*      <div class="nav-item @(ActivePage.Contains("/dj/history") ? "active" : "")"
+                 @onclick="@(() => NavigateToPage("/dj/history"))">
+                <div class="nav-icon">📊</div>
+                @if (!IsCollapsed)
+                {
+                    <span class="nav-text">History</span>
+                    @if (HistoryCount > 0)
+                    {
+                        <span class="nav-badge">@HistoryCount</span>
+                    }
+                }
+            </div> *@
+            
+            <div class="sidebar-nav-item @(ActivePage.Contains("/home") ? "active" : "")"
+                 @onclick="@(() => NavigateToPage("/"))">
+                <div class="nav-icon">🏠</div>
+                @if (!IsCollapsed)
+                {
+                    <span class="nav-text">Home</span>
+                }
+            </div>
+        </div>
+
+
+    </nav>
+
+@*     @if (!IsCollapsed)
+    {
+        <div class="sidebar-footer">
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <div class="stat-number">@TotalVotes</div>
+                    <div class="stat-label">Total Votes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">@TotalSessions</div>
+                    <div class="stat-label">Total Sessions</div>
+                </div>
+            </div>
+        </div>
+    } *@
+</div>
+
+@code {
+    [Parameter] public bool IsCollapsed { get; set; } = false;
+    [Parameter] public string ActivePage { get; set; } = "/home";
+    [Parameter] public int PlaylistCount { get; set; } = 12;
+    [Parameter] public int HistoryCount { get; set; } = 45;
+    [Parameter] public int TotalVotes { get; set; } = 1247;
+    [Parameter] public int TotalSessions { get; set; } = 3;
+
+    [Parameter] public EventCallback<bool> OnToggleCollapse { get; set; }
+    [Parameter] public EventCallback<string> OnNavigate { get; set; }
+    [Parameter] public EventCallback OnCreatePlaylist { get; set; }
+    [Parameter] public EventCallback OnStartLiveSession { get; set; }
+
+    private async Task ToggleCollapse()
+    {
+        IsCollapsed = !IsCollapsed;
+        await OnToggleCollapse.InvokeAsync(IsCollapsed);
+    }
+
+    private async Task NavigateToPage(string page)
+    {
+        await OnNavigate.InvokeAsync(page);
+    }
+
+    private async Task CreateNewPlaylist()
+    {
+        await OnCreatePlaylist.InvokeAsync();
+    }
+
+    private async Task StartLiveSession()
+    {
+        await OnStartLiveSession.InvokeAsync();
+    }
+}

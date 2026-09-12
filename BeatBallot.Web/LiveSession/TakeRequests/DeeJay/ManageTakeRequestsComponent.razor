@@ -1,0 +1,2140 @@
+﻿@* ManageLiveComponent.razor *@
+@page "/dj/session/{SessionId}/manage"
+
+@layout DJLayoutComponent
+@using System.Runtime.CompilerServices
+@using System.Text.Json
+@using BeatBallot.Web.Home.DeeJay
+@using BeatBallot.Web.Services
+@using BeatBallot.Web.Services.Local
+@using BeatBallot.Web.Services.Local.BeatBallot.Web.Services.Local
+@using BeatBallot.Web.Services.Spotify
+@using Microsoft.AspNetCore.SignalR.Client
+@using SpotifyAPI.Web
+@using Swan
+@inject NavigationManager Navigation
+@inject ISpotifyTokenService SpotifyTokenService
+@inject SpotifyService SpotifyService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ITokenProvider TokenProvider
+@inject ISongRequestCacheService SongRequestCacheService
+@inject ISessionActivityLogger SessionActivityLogger
+@inject ITipService TipService
+
+@inject IJSRuntime JSRuntime
+
+@implements IAsyncDisposable
+
+<div class="manage-live-page">
+    <div class="page-header">
+        <div class="header-content">
+
+            <div class="session-info">
+                <h1 class="page-title">Managing Live Session</h1>
+                <div class="session-details">
+                    <div class="playlist-name">
+                        <span class="label">Taking Requests</span>
+                    </div>
+                    <div class="session-start">
+                        <span class="label">Started:</span>
+                        <span class="value">@_sessionStartTime.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
+                    <div class="session-duration">
+                        <span class="label">Duration:</span>
+                        <span class="value" id="duration-display">@GetSessionDuration()</span>
+                    </div>
+                    <div class="listener-count">
+                        <span class="label">Active Listeners:</span>
+                        <span class="value">@_activeListeners</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="header-actions">
+            @if (!_isSessionOver)
+            {
+                <button class="stop-btn" @onclick="ShowStopConfirmation">
+                    <span class="btn-icon">⏹️</span>
+                    <span>Stop Taking Requests</span>
+                </button>
+
+            }
+        </div>
+    </div>
+    
+<!-- QR Code Section for Request URL -->
+<div class="qr-code-section">
+    <div class="qr-info">
+        <h3 class="qr-title">Audience Setup</h3>
+        <p class="qr-description">Share this URL so your listeners can request songs. Display the QR code for easy access.</p>
+        <div class="voting-url">
+
+            @if (_isSessionOver)
+            {
+                <span class="voting-link">Session Ended</span>
+            }
+            else
+            {
+                <span class="url-label">Request URL:</span>
+                <a href="@GetRequestUrl()" target="_blank" class="voting-link">@GetRequestUrl()</a>
+                <button class="copy-btn" @onclick="CopyRequestUrl" title="Copy URL">
+                    <span class="copy-icon">📋</span>
+                </button>
+            }
+
+        </div>
+        <div class="voting-url">
+            @if (_isSessionOver)
+            {
+                <span class="voting-link">Session Ended</span>
+            }
+            else
+            {
+                <span class="url-label">QR Display URL:</span>
+                <a href="@GetQrDisplayUrl()" target="_blank" class="voting-link">@GetQrDisplayUrl()</a>
+                <button class="copy-btn" @onclick="CopyQrDisplayUrl" title="Copy URL">
+                    <span class="copy-icon">📋</span>
+                </button>
+            }
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Session Policy Controls -->
+    @if (!_isSessionOver)
+    {
+        <div class="session-policy-section">
+            <div class="policy-header">
+                <h3 class="policy-title">Session Policies</h3>
+                <p class="policy-description">Configure what content listeners can request and how they interact with your session</p>
+            </div>
+
+            <div class="policy-controls">
+                <!-- Content Filtering -->
+                <div class="policy-group">
+                    <h4 class="policy-group-title">Content Filtering</h4>
+
+                    <div class="policy-control-item">
+                        <label class="policy-toggle">
+                            <input type="checkbox"
+                                   @bind="_sessionPolicy.BlockExplicitContent"
+                                   @bind:after="OnPolicyChanged"
+                                   class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">
+                                <span class="toggle-text">Block Explicit Content</span>
+                                <span class="toggle-description">
+                                    @if (_sessionPolicy.BlockExplicitContent)
+                                    {
+                                        <span class="policy-status active">🚫 Explicit songs hidden from listeners</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="policy-status inactive">⚠️ Explicit songs allowed</span>
+                                    }
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                     <div class="policy-control-item">
+                        <label class="input-label">Minimum Song Duration (minutes)</label>
+                        <div class="input-group">
+                            <input type="number"
+                                   @bind="_minDurationMinutes"
+                                   @bind:after="OnDurationPolicyChanged"
+                                   min="0"
+                                   max="30"
+                                   step="0.5"
+                                   class="policy-input"
+                                   placeholder="No minimum" />
+                            <span class="input-suffix">min</span>
+                        </div>
+                    </div>
+
+                    <div class="policy-control-item">
+                        <label class="input-label">Maximum Song Duration (minutes)</label>
+                        <div class="input-group">
+                            <input type="number"
+                                   @bind="_maxDurationMinutes"
+                                   @bind:after="OnDurationPolicyChanged"
+                                   min="1"
+                                   max="60"
+                                   step="0.5"
+                                   class="policy-input"
+                                   placeholder="No maximum" />
+                            <span class="input-suffix">min</span>
+                        </div>
+                    </div> 
+                </div>
+
+                <!-- Request Limits -->
+                 <div class="policy-group">
+                    <h4 class="policy-group-title">Request Limits</h4>
+
+                    <div class="policy-control-item">
+                        <label class="input-label">Max Requests Per Listener</label>
+                        <div class="input-group">
+                            <input type="number"
+                                   @bind="_sessionPolicy.MaxRequestsPerListener"
+                                   @bind:after="OnPolicyChanged"
+                                   min="1"
+                                   max="50"
+                                   class="policy-input"
+                                   placeholder="Unlimited" />
+                            <span class="input-suffix">requests</span>
+                        </div>
+                    </div>
+
+@*                     <div class="policy-control-item">
+                        <label class="policy-toggle">
+                            <input type="checkbox"
+                                   @bind="_sessionPolicy.AllowDuplicateRequests"
+                                   @bind:after="OnPolicyChanged"
+                                   class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">
+                                <span class="toggle-text">Allow Duplicate Song Requests</span>
+                                <span class="toggle-description">
+                                    @if (_sessionPolicy.AllowDuplicateRequests)
+                                    {
+                                        <span class="policy-status active">✅ Listeners can request the same song multiple times</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="policy-status inactive">🚫 Each song can only be requested once</span>
+                                    }
+                                </span>
+                            </span>
+                        </label>
+                    </div> *@
+                </div> 
+
+        @*         <!-- Visibility Settings -->
+                <div class="policy-group">
+                    <h4 class="policy-group-title">Visibility & Privacy</h4>
+
+                    <div class="policy-control-item">
+                        <label class="policy-toggle">
+                            <input type="checkbox"
+                                   @bind="_sessionPolicy.ShowRequestsToListeners"
+                                   @bind:after="OnPolicyChanged"
+                                   class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">
+                                <span class="toggle-text">Show Requests to Other Listeners</span>
+                                <span class="toggle-description">
+                                    @if (_sessionPolicy.ShowRequestsToListeners)
+                                    {
+                                        <span class="policy-status active">👥 Listeners can see what others have requested</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="policy-status inactive">🔒 Requests are private to each listener</span>
+                                    }
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+                </div> *@
+@* 
+                <!-- Custom Message -->
+                <div class="policy-group">
+                    <h4 class="policy-group-title">Custom Message</h4>
+
+                    <div class="policy-control-item">
+                        <label class="input-label">Message for Listeners (Optional)</label>
+                        <textarea @bind="_sessionPolicy.PolicyMessage"
+                                  @bind:after="OnPolicyChanged"
+                                  class="policy-textarea"
+                                  placeholder="Add a custom message that will be displayed to listeners (e.g., 'Please keep song requests appropriate for all ages')"
+                                  rows="3"
+                                  maxlength="200"></textarea>
+                        <div class="character-count">
+                            @((_sessionPolicy.PolicyMessage?.Length ?? 0))/200 characters
+                        </div>
+                    </div>
+                </div> *@
+
+                <!-- Blocked Content -->
+                <div class="policy-group">
+                    <h4 class="policy-group-title">Blocked Content</h4>
+
+                    <div class="policy-control-item">
+                        <label class="input-label">Blocked Artists (Optional)</label>
+                        <div class="blocked-items-container">
+                            <input type="text"
+                                   @bind="_newBlockedArtist"
+                                   @onkeypress="OnBlockedArtistKeyPress"
+                                   class="policy-input"
+                                   placeholder="Enter artist name and press Enter" />
+
+                            @if (_sessionPolicy.BlockedArtists.Any())
+                            {
+                                <div class="blocked-items-list">
+                                    @foreach (var artist in _sessionPolicy.BlockedArtists)
+                                    {
+                                        <div class="blocked-item">
+                                            <span class="blocked-item-text">@artist</span>
+                                            <button class="remove-blocked-item" @onclick="() => RemoveBlockedArtist(artist)">×</button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+         @*            <div class="policy-control-item">
+                        <label class="input-label">Blocked Genres (Optional)</label>
+                        <div class="blocked-items-container">
+                            <input type="text"
+                                   @bind="_newBlockedGenre"
+                                   @onkeypress="OnBlockedGenreKeyPress"
+                                   class="policy-input"
+                                   placeholder="Enter genre and press Enter" />
+
+                            @if (_sessionPolicy.BlockedGenres.Any())
+                            {
+                                <div class="blocked-items-list">
+                                    @foreach (var genre in _sessionPolicy.BlockedGenres)
+                                    {
+                                        <div class="blocked-item">
+                                            <span class="blocked-item-text">@genre</span>
+                                            <button class="remove-blocked-item" @onclick="() => RemoveBlockedGenre(genre)">×</button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div> *@
+                </div>
+
+                <!-- Auto-Play Controls -->
+                <div class="policy-group">
+                    <h4 class="policy-group-title">Playback Controls</h4>
+
+                    <div class="policy-control-item">
+                        <label class="policy-toggle">
+                            <input type="checkbox"
+                                   @bind="_isAutoPlayEnabled"
+                                   @bind:after="OnAutoPlayToggled"
+                                   class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">
+                                <span class="toggle-text">Auto-Play Mode</span>
+                                <span class="toggle-description">
+                                    @if (_isAutoPlayEnabled)
+                                    {
+                                        <span class="policy-status active">🔄 Automatically play next song when current song ends</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="policy-status inactive">⏸️ Manual playback control</span>
+                                    }
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+  @*                   @if (_isAutoPlayEnabled && _requestedSongs.Any())
+                    {
+                        <div class="policy-control-item auto-play-status">
+                            <div class="auto-play-info">
+                                <span class="auto-play-label">Current Queue Position:</span>
+                                <span class="auto-play-position">@(_currentAutoPlayIndex + 1) of @GetDisplaySongs().Count()</span>
+                                @if (_nextSongInQueue != null)
+                                {
+                                    <div class="next-song-info">
+                                        <span class="next-song-label">Up Next:</span>
+                                        <span class="next-song-title">@_nextSongInQueue.Name by @SpotifySearchService.GetAllArtistNames(_nextSongInQueue)</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    } *@
+                </div>
+            </div>
+
+            @if (_policyChangesPending)
+            {
+                <div class="policy-save-bar">
+                    <div class="save-bar-content">
+                        <span class="save-icon">💾</span>
+                        <span class="save-text">You have unsaved policy changes</span>
+                        <button class="save-btn" @onclick="SavePolicyChanges">Save Changes</button>
+                        <button class="cancel-btn" @onclick="RevertPolicyChanges">Cancel</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Add this status message section after your page-header -->
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="status-message">
+            <div class="status-content">
+                <button class="status-close" @onclick="ClearStatusMessage">&times;</button>
+                <span class="status-icon">ℹ️</span>
+                <span class="status-text">@_statusMessage</span>
+            </div>
+        </div>
+    }
+
+
+
+    <!-- Live Stats -->
+    <div class="live-stats">
+        <div class="stat-card">
+            @* <div class="stat-icon">🎵</div> *@
+            <div class="stat-content">
+                <div class="stat-number">@_totalUniqueRequests</div>
+                <div class="stat-label">Unique Songs</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            @* <div class="stat-icon">📊</div> *@
+            <div class="stat-content">
+                <div class="stat-number">@_totalRequests</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+        </div>
+        @* <div class="stat-card">
+             <div class="stat-icon">👥</div> 
+            <div class="stat-content">
+                <div class="stat-number">@_activeListeners</div>
+                <div class="stat-label">Active Listeners</div>
+            </div>
+        </div> *@
+        <div class="stat-card">
+            @* <div class="stat-icon">⏱️</div> *@
+            <div class="stat-content">
+                <div class="stat-number">@GetSessionDuration()</div>
+                <div class="stat-label">Session Time</div>
+            </div>
+        </div>
+    </div>
+    
+    
+    <!-- Tip Dashboard -->
+@if (_totalTipsReceived > 0)
+{
+    <div class="tips-dashboard">
+        <div class="tips-header">
+            <h3 class="tips-title">💰 Tips Received</h3>
+            <div class="tips-total">
+                <span class="tips-amount">$@_totalTipsReceived.ToString("F2")</span>
+                <span class="tips-label">Total this session</span>
+            </div>
+        </div>
+
+        @if (_recentTips.Any())
+        {
+            <div class="recent-tips-grid">
+                @foreach (var tip in _recentTips.Take(5))
+                {
+                    <div class="tip-notification @(_newTipIds.Contains(tip.Id) ? "new-tip" : "")">
+                        <div class="tip-header">
+                            <span class="tip-amount">$@tip.Amount.ToString("F2")</span>
+                            <span class="tip-time">@tip.CreatedAt.ToLocalTime().ToString("HH:mm")</span>
+                        </div>
+                        <div class="tip-content">
+                            <span class="tipper-name">@tip.TipperName</span>
+                            @if (!string.IsNullOrEmpty(tip.Message))
+                            {
+                                <div class="tip-message">"@tip.Message"</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="tips-actions">
+            <button class="control-btn tips-settings-btn" @onclick="ShowTipSettings">
+                <span class="btn-icon">⚙️</span>
+                <span>Tip Settings</span>
+            </button>
+            <button class="control-btn view-all-tips-btn" @onclick="ViewAllTips">
+                <span class="btn-icon">📊</span>
+                <span>View All Tips</span>
+            </button>
+        </div>
+    </div>
+}
+else if (_djPaymentSettings?.IsPaymentEnabled == true)
+{
+    <div class="tips-dashboard">
+        <div class="no-tips-yet">
+            <div class="no-tips-icon">💰</div>
+            <h3>Tip Jar is Active</h3>
+            <p>Listeners can now send you tips! They'll appear here when received.</p>
+        </div>
+    </div>
+}
+
+<!-- Tip Settings Modal -->
+@if (_showTipSettings)
+{
+    <div class="modal-overlay" @onclick="CancelTipSettings">
+        <div class="tip-settings-modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">💰 Tip Settings</h3>
+                <button class="close-modal-btn" @onclick="CancelTipSettings">×</button>
+            </div>
+
+            <div class="modal-content">
+                <EditForm Model="_djPaymentSettings" OnValidSubmit="SaveTipSettings">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label class="policy-toggle">
+                            <input type="checkbox" @bind="_djPaymentSettings.ShowTipJar" class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">
+                                <span class="toggle-text">Show Tip Jar to Listeners</span>
+                                <span class="toggle-description">Allow listeners to send tips during your sessions</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    @if (_djPaymentSettings.ShowTipJar)
+                    {
+                        <div class="form-group">
+                            <label>Tip Jar Message (Optional)</label>
+                            <textarea @bind="_djPaymentSettings.TipJarMessage" 
+                                      class="form-control" 
+                                      rows="2" 
+                                      placeholder="Thank you for supporting my music!"
+                                      maxlength="150"></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Minimum Tip Amount</label>
+                                <div class="input-group">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" @bind="_djPaymentSettings.MinTipAmount" 
+                                           class="form-control" min="0.50" max="10" step="0.50" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Maximum Tip Amount</label>
+                                <div class="input-group">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" @bind="_djPaymentSettings.MaxTipAmount" 
+                                           class="form-control" min="10" max="500" step="5" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Preset Tip Amounts (comma-separated)</label>
+                            <input type="text" @bind="_djPaymentSettings.PresetAmounts" 
+                                   class="form-control" 
+                                   placeholder="1,5,10,20" />
+                            <small class="form-text">Enter amounts separated by commas (e.g., 1,5,10,20)</small>
+                        </div>
+                    }
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelTipSettings">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+    <div class="songs-section">
+        <div class="songs-header">
+            <h2 class="section-title">Song Requests</h2>
+            <div class="header-controls">
+                @if (_currentSortMode == SortMode.Custom)
+                {
+                    <span class="drag-hint">💡 Drag songs to reorder your playlist</span>
+                }
+
+                @if (_isAutoPlayEnabled)
+                {
+                    <div class="auto-play-controls">
+                        <button class="control-btn auto-play-btn previous" @onclick="PlayPreviousSong" disabled="@(_currentAutoPlayIndex <= 0)">
+                            <span class="btn-icon">⏮️</span>
+                            <span>Previous</span>
+                        </button>
+                        <button class="control-btn auto-play-btn next" @onclick="PlayNextSong" disabled="@(_currentAutoPlayIndex >= GetDisplaySongs().Count() - 1)">
+                            <span class="btn-icon">⏭️</span>
+                            <span>Next</span>
+                        </button>
+                    </div>
+                }
+
+                <div class="sort-controls">
+                    <label class="sort-label">Sort by:</label>
+                    <select class="sort-dropdown" @bind="_currentSortMode" @bind:after="OnSortModeChanged">
+                        <option value="@SortMode.MostRecent">Most Recent Request</option>
+                        <option value="@SortMode.Oldest">Oldest Request</option>
+                        <option value="@SortMode.MostRequested">Most Requested</option>
+                        <option value="@SortMode.Custom">Custom Order (Drag & Drop)</option>
+                    </select>
+                </div>
+                <button class="control-btn refresh-btn" @onclick="RefreshRequests" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span class="loading-spinner"></span>
+                    }
+                    else
+                    {
+                        <span class="btn-icon">🔄</span>
+                    }
+                    <span>Refresh</span>
+                </button>
+                <button class="control-btn clear-all-btn" @onclick="ShowClearAllConfirmation" disabled="@(!_requestedSongs.Any())">
+                    <span class="btn-icon">🗑️</span>
+                    <span>Clear All</span>
+                </button>
+            </div>
+        </div>
+
+
+
+        @if (_requestedSongs.Any())
+        {
+            <div class="songs-grid @(_currentSortMode == SortMode.Custom ? "drag-enabled" : "")" id="songs-container">
+                @foreach (var songGroup in GetDisplaySongs().Select((song, index) => new { Song = song, Index = index }))
+                {
+
+                    <div class="song-card @(songGroup.Song.Uri == _currentlyPlayingSongId ? "currently-playing" : "") @(_currentSortMode == SortMode.Custom ? "draggable" : "") @(_dragTargetIndex == songGroup.Index ? "drag-target" : "") @(_isAutoPlayEnabled && songGroup.Index == _currentAutoPlayIndex ? "auto-play-current" : "")"
+                         draggable="@(_currentSortMode == SortMode.Custom ? "true" : "false")"
+                         @ondragstart="@(() => OnDragStart(songGroup.Index))"
+                         @ondragstart:preventDefault="false"
+                         @ondragenter="@(() => OnDragEnter(songGroup.Index))"
+                         @ondragenter:preventDefault="true"
+                         @ondragover="@(() => OnDragOver(songGroup.Index))"
+                         @ondragover:preventDefault="true"
+                         @ondragleave="@(() => OnDragLeave(songGroup.Index))"
+                         @ondrop="@(() => OnDrop(songGroup.Index))"
+                         @ondrop:preventDefault="true"
+                         data-position="@songGroup.Index">
+
+                        <!-- Remove button in top right corner -->
+                        <button class="remove-corner-btn" @onclick="() => RemoveSongRequest(songGroup.Song.Id)" title="Remove Request">
+                            <span class="remove-icon">×</span>
+                        </button>
+
+                        <div class="song-header">
+                            <div class="song-position">
+                                <div class="request-count-badge @(GetRequestCount(songGroup.Song.Id) > 1 ? "popular" : "")">
+                                    <span class="count-number">@GetRequestCount(songGroup.Song.Id)</span>
+                                    <span class="count-label">request@(GetRequestCount(songGroup.Song.Id) != 1 ? "s" : "")</span>
+                                    @if (GetRequestCount(songGroup.Song.Id) >= 5)
+                                    {
+                                        <span class="hot-indicator">🔥</span>
+                                    }
+                                </div>
+                                @if (songGroup.Song.Uri == _currentlyPlayingSongId)
+                                {
+                                    <span class="playing-indicator">♪</span>
+                                    <span class="position-text">Playing</span>
+                                }
+                @*                 @if (_isAutoPlayEnabled && songGroup.Index == _currentAutoPlayIndex)
+                                {
+                                    <span class="auto-play-indicator">🎯</span>
+                                    <span class="position-text">Queue Position</span>
+                                } *@
+                            </div>
+
+                            @if (_currentSortMode == SortMode.Custom)
+                            {
+                                <div class="drag-handle" title="Drag to reorder">
+                                    <span class="drag-dots">⋮⋮</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="song-content">
+                            <div class="song-cover">
+                                @if (!string.IsNullOrEmpty(SpotifyService.GetAlbumImageUrl(songGroup.Song)))
+                                {
+                                    <img src="@SpotifyService.GetAlbumImageUrl(songGroup.Song)" alt="@songGroup.Song.Name" class="cover-image" />
+                                }
+                                else
+                                {
+                                    <div class="cover-placeholder">🎵</div>
+                                }
+                                @if (songGroup.Song.Uri == _currentlyPlayingSongId)
+                                {
+                                    <div class="playing-overlay">
+                                        <div class="playing-animation">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="song-info">
+                                <h3 class="song-title">@songGroup.Song.Name  @(@songGroup.Song.Explicit ? "   (EXPLICIT)" : "") </h3>
+                                <p class="song-artist">@SpotifySearchService.GetAllArtistNames(songGroup.Song)</p>
+                                <p class="song-album">@songGroup.Song.Album?.Name</p>
+                                <div class="song-meta">
+                                    <span class="duration">⏱️ @SpotifySearchService.FormatDuration(songGroup.Song.DurationMs)</span>
+                                    <span class="first-requested">🕐 First: @GetFirstRequestTime(songGroup.Song.Id).ToLocalTime().ToString("HH:mm:ss")</span>
+                                    <span class="last-requested">🕘 Latest: @GetLatestRequestTime(songGroup.Song.Id).ToLocalTime().ToString("HH:mm:ss")</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="song-actions">
+                            @if (songGroup.Song.Uri == _currentlyPlayingSongId)
+                            {
+                                @if (_isPlaying)
+                                {
+                                    <button class="play-btn pause-state" @onclick="() => PauseSong()">
+                                        <span class="btn-icon">⏸️</span>
+                                        <span>Pause</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="play-btn resume-state" @onclick="() => ResumeSong()">
+                                        <span class="btn-icon">▶️</span>
+                                        <span>Resume</span>
+                                    </button>
+                                }
+                            }
+                            else
+                            {
+                                <button class="play-btn" @onclick="() => PlaySong(songGroup.Song.Uri, songGroup.Index)">
+                                    <span class="btn-icon">▶️</span>
+                                    <span>Play Now</span>
+                                </button>
+                            }
+                        </div>
+
+                        <div class="requesters">
+                            <span class="requesters-label">Requested by:</span>
+                            <div class="requesters-list">
+                                @foreach (var requester in GetRequesters(songGroup.Song.Id).Take(3))
+                                {
+                                    <span class="requester-badge">@requester</span>
+
+                                    @if (GetRequesters(songGroup.Song.Id).Count > 3)
+                                    {
+                                        <span class="more-requesters">+@(GetRequesters(songGroup.Song.Id).Count - 3) more</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-requests">
+                <div class="empty-icon">🎵</div>
+                <h3>No Song Requests Yet</h3>
+                <p>Waiting for listeners to submit song requests...</p>
+                <button class="refresh-btn" @onclick="RefreshRequests">
+                    <span class="btn-icon">🔄</span>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        }
+    </div>
+
+    <!-- Stop Requests Confirmation Modal -->
+    @if (_showStopConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelStop">
+            <div class="confirmation-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Stop Taking Requests?</h3>
+                    <button class="close-modal-btn" @onclick="CancelStop">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="warning-icon">⚠️</div>
+                    <p class="warning-message">
+                        Are you sure? Listeners will no longer be able to submit requests. You will still see all requests made up till now.
+                    </p>
+                    <p class="session-summary">
+                        Session has been running for <strong>@GetSessionDuration()</strong> with <strong>@_totalRequests total requests</strong>.
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="cancel-btn" @onclick="CancelStop">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="confirm-btn stop" @onclick="ConfirmStop">
+                        <span>Stop Taking Requests</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Clear All Confirmation Modal -->
+    @if (_showClearAllConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelClearAll">
+            <div class="confirmation-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Clear All Requests?</h3>
+                    <button class="close-modal-btn" @onclick="CancelClearAll">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="warning-icon">🗑️</div>
+                    <p class="warning-message">
+                        This will remove all @_totalRequests song requests from the session. This action cannot be undone.
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="cancel-btn" @onclick="CancelClearAll">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="confirm-btn clear" @onclick="ConfirmClearAll">
+                        <span>Clear All Requests</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+
+
+    <!-- Add this device selector modal at the end of your component, before the closing div -->
+    @if (_showDeviceSelector)
+    {
+        <div class="modal-overlay" @onclick="CancelDeviceSelector">
+            <div class="device-selector-modal" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Select Spotify Device</h3>
+                    <button class="close-modal-btn" @onclick="CancelDeviceSelector">×</button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="device-icon">🎵</div>
+                    <p class="device-message">
+                        Choose which Spotify device to use for playback:
+                    </p>
+
+                    <div class="devices-list">
+                        @foreach (var device in _availableDevices)
+                        {
+                            <button class="device-option @(device.IsActive ? "active" : "")"
+                                    @onclick="() => SelectDevice(device.Id)">
+                                <div class="device-info">
+                                    <span class="device-name">@device.Name</span>
+                                    <span class="device-type">@GetDeviceTypeIcon(device.Type) @device.Type</span>
+                                    @if (device.IsActive)
+                                    {
+                                        <span class="active-indicator">Currently Active</span>
+                                    }
+                                </div>
+                                <div class="device-volume">
+                                    @if (device.VolumePercent.HasValue)
+                                    {
+                                        <span class="volume-text">🔊 @device.VolumePercent%</span>
+                                    }
+                                </div>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="device-help">
+                        <p class="help-text">
+                            💡 Don't see your device? Make sure Spotify is open and playing on the device you want to use.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+
+
+</div>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private HubConnection? _hubConnection;
+    private readonly DateTime _sessionStartTime = DateTime.Now;
+    private bool _isPlaying;
+    private bool _showStopConfirmation;
+    private bool _isSessionOver = false;
+    private bool _showClearAllConfirmation;
+    private bool _isLoading;
+    private string _currentlyPlayingSongId = "";
+    private int _totalRequests;
+    private int _totalUniqueRequests;
+    private int _activeListeners;
+    private int _draggedIndex = -1;
+    private int _dragTargetIndex = -1;
+    private SortMode _currentSortMode = SortMode.MostRecent;
+    private System.Threading.Timer? _durationTimer;
+    private string _statusMessage = "";
+    private bool _showDeviceSelector;
+    private string _sessionTime;
+    private List<Device> _availableDevices = new();
+
+    // Auto-play functionality
+    private bool _isAutoPlayEnabled = false;
+    private int _currentAutoPlayIndex = -1;
+    private FullTrack? _nextSongInQueue = null;
+    private System.Threading.Timer? _playbackMonitorTimer;
+    private DateTime? _currentSongStartTime = null;
+    private int? _currentSongDurationMs = null;
+    private bool _isMonitoringPlayback = false;
+
+    // Session Policy
+    private SessionPolicy _sessionPolicy = new();
+    private SessionPolicy _originalSessionPolicy = new();
+    private bool _policyChangesPending = false;
+
+    // Helper fields for UI binding
+    private double? _minDurationMinutes;
+    private double? _maxDurationMinutes;
+    private string _newBlockedArtist = "";
+    private string _newBlockedGenre = "";
+
+    private List<FullTrack> _requestedSongs = new();
+    private List<ISongRequestCacheService.SongRequestGroup> _songRequestGroups = new();
+    private List<FullTrack> _customOrderSongs = new();
+    private string _djUserName = string.Empty;
+    private string _djEmail = string.Empty;
+
+
+    private decimal _totalTipsReceived = 0;
+    private List<Tip> _recentTips = new();
+    private HashSet<string> _newTipIds = new();
+    private DjPaymentSettings _djPaymentSettings = new();
+    private bool _showTipSettings = false;
+
+
+
+    public enum SortMode
+    {
+        MostRecent,
+        Oldest,
+        MostRequested,
+        Custom
+    }
+
+    // Add these methods to your ManageLiveComponent @code section:
+    private async Task LoadTipData()
+    {
+        try
+        {
+            _totalTipsReceived = await TipService.GetSessionTotalTipsAsync(SessionId);
+            _recentTips = await TipService.GetSessionTipsAsync(SessionId);
+            _djPaymentSettings = await TipService.GetDjPaymentSettingsAsync(_djEmail) ?? new DjPaymentSettings { DjUserId = _djEmail };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tip data: {ex.Message}");
+        }
+    }
+
+    private void ShowTipSettings()
+    {
+        _showTipSettings = true;
+    }
+
+    private void CancelTipSettings()
+    {
+        _showTipSettings = false;
+    }
+
+    private async Task SaveTipSettings()
+    {
+        try
+        {
+            await TipService.SaveDjPaymentSettingsAsync(_djPaymentSettings);
+            _showTipSettings = false;
+            _statusMessage = "✅ Tip settings saved successfully";
+        
+            // Clear message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _statusMessage = "";
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ Failed to save tip settings: {ex.Message}";
+        }
+    
+        StateHasChanged();
+    }
+
+    private void ViewAllTips()
+    {
+        // Navigate to a detailed tips page or show expanded view
+        Navigation.NavigateTo($"/dj/tips/{SessionId}");
+    }
+
+
+
+
+    // Add this helper method to your @code section
+    private string GetDeviceTypeIcon(string deviceType)
+    {
+        return deviceType?.ToLower() switch
+        {
+            "computer" => "💻",
+            "smartphone" => "📱",
+            "speaker" => "🔊",
+            "tv" => "📺",
+            "automobile" => "🚗",
+            "tablet" => "📱",
+            _ => "🎵"
+        };
+    }
+
+    private void ClearStatusMessage()
+    {
+        _statusMessage = "";
+        StateHasChanged();
+    }
+
+    // Auto-play methods
+    private async Task OnAutoPlayToggled()
+    {
+        if (_isAutoPlayEnabled)
+        {
+            // Initialize auto-play
+            await InitializeAutoPlay();
+        }
+        else
+        {
+            // Disable auto-play
+            await DisableAutoPlay();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task InitializeAutoPlay()
+    {
+        try
+        {
+            var displaySongs = GetDisplaySongs().ToList();
+            if (!displaySongs.Any())
+            {
+                _isAutoPlayEnabled = false;
+                _statusMessage = "⚠️ No songs available for auto-play";
+                return;
+            }
+
+            // Set current index to the currently playing song if any, otherwise start from beginning
+            if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
+            {
+                var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
+                _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
+            }
+            else
+            {
+                _currentAutoPlayIndex = 0;
+            }
+
+            UpdateNextSongInQueue();
+            await StartPlaybackMonitoring();
+
+            _statusMessage = "🔄 Auto-play mode enabled";
+            // Clear message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _statusMessage = "";
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing auto-play: {ex.Message}");
+            _isAutoPlayEnabled = false;
+            _statusMessage = "❌ Failed to enable auto-play mode";
+        }
+    }
+
+    private async Task DisableAutoPlay()
+    {
+        _currentAutoPlayIndex = -1;
+        _nextSongInQueue = null;
+        await StopPlaybackMonitoring();
+
+        _statusMessage = "⏸️ Auto-play mode disabled";
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _statusMessage = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task StartPlaybackMonitoring()
+    {
+        if (_isMonitoringPlayback) return;
+
+        _isMonitoringPlayback = true;
+        _playbackMonitorTimer = new System.Threading.Timer(async _ =>
+        {
+            if (_isAutoPlayEnabled && _isPlaying && !string.IsNullOrEmpty(_currentlyPlayingSongId))
+            {
+                await CheckCurrentPlaybackStatus();
+            }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5)); // Check every 5 seconds
+    }
+
+    private async Task StopPlaybackMonitoring()
+    {
+        _isMonitoringPlayback = false;
+        _playbackMonitorTimer?.Dispose();
+        _playbackMonitorTimer = null;
+        _currentSongStartTime = null;
+        _currentSongDurationMs = null;
+    }
+
+    private async Task CheckCurrentPlaybackStatus()
+    {
+        try
+        {
+            // This method should check Spotify's current playback state
+            // You'll need to implement this in your SpotifyService
+            var playbackState = await SpotifyService.GetCurrentPlaybackAsync();
+
+            if (playbackState?.Item == null || !playbackState.IsPlaying)
+            {
+                // Song has ended or was paused - advance to next if auto-play is enabled
+                if (_isAutoPlayEnabled && !_isSessionOver)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await PlayNextSong();
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking playback status: {ex.Message}");
+        }
+    }
+
+    private async Task PlayNextSong()
+    {
+        if (!_isAutoPlayEnabled || _isSessionOver) return;
+
+        var displaySongs = GetDisplaySongs().ToList();
+        if (_currentAutoPlayIndex >= displaySongs.Count - 1)
+        {
+            // End of queue
+            _statusMessage = "🎉 Reached end of song queue";
+            _isAutoPlayEnabled = false;
+            UpdateNextSongInQueue();
+            StateHasChanged();
+            return;
+        }
+
+        _currentAutoPlayIndex++;
+        var nextSong = displaySongs[_currentAutoPlayIndex];
+        await PlaySong(nextSong.Uri, _currentAutoPlayIndex);
+        UpdateNextSongInQueue();
+    }
+
+    private async Task PlayPreviousSong()
+    {
+        if (!_isAutoPlayEnabled || _currentAutoPlayIndex <= 0) return;
+
+        _currentAutoPlayIndex--;
+        var displaySongs = GetDisplaySongs().ToList();
+        var previousSong = displaySongs[_currentAutoPlayIndex];
+        await PlaySong(previousSong.Uri, _currentAutoPlayIndex);
+        UpdateNextSongInQueue();
+    }
+
+    private void UpdateNextSongInQueue()
+    {
+        var displaySongs = GetDisplaySongs().ToList();
+        if (_isAutoPlayEnabled && _currentAutoPlayIndex >= 0 && _currentAutoPlayIndex < displaySongs.Count - 1)
+        {
+            _nextSongInQueue = displaySongs[_currentAutoPlayIndex + 1];
+        }
+        else
+        {
+            _nextSongInQueue = null;
+        }
+    }
+
+    // Policy management methods
+    private void OnPolicyChanged()
+    {
+        _policyChangesPending = true;
+        StateHasChanged();
+    }
+
+    private void OnDurationPolicyChanged()
+    {
+        // Convert minutes to milliseconds
+        _sessionPolicy.MinSongDurationMs = _minDurationMinutes.HasValue ? (int)(_minDurationMinutes.Value * 60000) : null;
+        _sessionPolicy.MaxSongDurationMs = _maxDurationMinutes.HasValue ? (int)(_maxDurationMinutes.Value * 60000) : null;
+
+        OnPolicyChanged();
+    }
+
+    private async Task OnBlockedArtistKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newBlockedArtist))
+        {
+            var artist = _newBlockedArtist.Trim();
+            if (!_sessionPolicy.BlockedArtists.Contains(artist, StringComparer.OrdinalIgnoreCase))
+            {
+                _sessionPolicy.BlockedArtists.Add(artist);
+                _newBlockedArtist = "";
+                OnPolicyChanged();
+            }
+        }
+    }
+
+    private async Task OnBlockedGenreKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newBlockedGenre))
+        {
+            var genre = _newBlockedGenre.Trim();
+            if (!_sessionPolicy.BlockedGenres.Contains(genre, StringComparer.OrdinalIgnoreCase))
+            {
+                _sessionPolicy.BlockedGenres.Add(genre);
+                _newBlockedGenre = "";
+                OnPolicyChanged();
+            }
+        }
+    }
+
+    private void RemoveBlockedArtist(string artist)
+    {
+        _sessionPolicy.BlockedArtists.Remove(artist);
+        OnPolicyChanged();
+    }
+
+    private void RemoveBlockedGenre(string genre)
+    {
+        _sessionPolicy.BlockedGenres.Remove(genre);
+        OnPolicyChanged();
+    }
+
+    private async Task SavePolicyChanges()
+    {
+        try
+        {
+            _sessionPolicy.MarkAsUpdated();
+            _sessionPolicy.DjUserId = _djEmail; // or use appropriate DJ identifier
+            _sessionPolicy.SessionId = SessionId;
+
+            // Update the session policy via SignalR to notify all listeners
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("UpdateSessionPolicy", SessionId, _sessionPolicy);
+            }
+
+            // Save to cache service
+            await SongRequestCacheService.UpdateSessionPolicyAsync(SessionId, _sessionPolicy);
+
+            // Log the policy change
+            SessionActivityLogger.LogPolicyChange(SessionId, _originalSessionPolicy, _sessionPolicy, _djUserName);
+
+
+            // Update original policy and clear pending changes
+            _originalSessionPolicy = new SessionPolicy
+            {
+                SessionId = _sessionPolicy.SessionId,
+                BlockExplicitContent = _sessionPolicy.BlockExplicitContent,
+                MaxRequestsPerListener = _sessionPolicy.MaxRequestsPerListener,
+                MinSongDurationMs = _sessionPolicy.MinSongDurationMs,
+                MaxSongDurationMs = _sessionPolicy.MaxSongDurationMs,
+                BlockedArtists = new List<string>(_sessionPolicy.BlockedArtists),
+                BlockedGenres = new List<string>(_sessionPolicy.BlockedGenres),
+                AllowDuplicateRequests = _sessionPolicy.AllowDuplicateRequests,
+                ShowRequestsToListeners = _sessionPolicy.ShowRequestsToListeners,
+                PolicyMessage = _sessionPolicy.PolicyMessage,
+                CreatedAt = _sessionPolicy.CreatedAt,
+                UpdatedAt = _sessionPolicy.UpdatedAt,
+                DjUserId = _sessionPolicy.DjUserId
+            };
+
+            _policyChangesPending = false;
+            _statusMessage = "✅ Session policies updated successfully";
+
+            // Clear message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _statusMessage = "";
+                InvokeAsync(StateHasChanged);
+            });
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating session policy: {ex.Message}");
+            _statusMessage = "❌ Failed to update session policies. Please try again.";
+            StateHasChanged();
+        }
+    }
+
+    private void RevertPolicyChanges()
+    {
+        // Revert to original policy
+        _sessionPolicy = new SessionPolicy
+        {
+            SessionId = _originalSessionPolicy.SessionId,
+            BlockExplicitContent = _originalSessionPolicy.BlockExplicitContent,
+            MaxRequestsPerListener = _originalSessionPolicy.MaxRequestsPerListener,
+            MinSongDurationMs = _originalSessionPolicy.MinSongDurationMs,
+            MaxSongDurationMs = _originalSessionPolicy.MaxSongDurationMs,
+            BlockedArtists = new List<string>(_originalSessionPolicy.BlockedArtists),
+            BlockedGenres = new List<string>(_originalSessionPolicy.BlockedGenres),
+            AllowDuplicateRequests = _originalSessionPolicy.AllowDuplicateRequests,
+            ShowRequestsToListeners = _originalSessionPolicy.ShowRequestsToListeners,
+            PolicyMessage = _originalSessionPolicy.PolicyMessage,
+            CreatedAt = _originalSessionPolicy.CreatedAt,
+            UpdatedAt = _originalSessionPolicy.UpdatedAt,
+            DjUserId = _originalSessionPolicy.DjUserId
+        };
+
+        // Update UI binding fields
+        _minDurationMinutes = _sessionPolicy.MinSongDurationMs.HasValue ? _sessionPolicy.MinSongDurationMs.Value / 60000.0 : null;
+        _maxDurationMinutes = _sessionPolicy.MaxSongDurationMs.HasValue ? _sessionPolicy.MaxSongDurationMs.Value / 60000.0 : null;
+
+        _policyChangesPending = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            Navigation.NavigateTo("/dj/startsession");
+            return;
+        }
+
+        string token = await TokenProvider.GetAccessTokenAsync();
+
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/login");
+        }
+
+        SpotifyTokenService.SetDJTokenForSessionAsync(SessionId, token);
+
+        var t = await SpotifyService.GetUser();
+        _djUserName = t.DisplayName;
+        _djEmail = t.Email;
+
+        // Load existing session policy if it exists, otherwise create default
+        var existingPolicy = await SongRequestCacheService.GetSessionPolicyAsync(SessionId);
+        if (existingPolicy != null)
+        {
+            _originalSessionPolicy = existingPolicy;
+        }
+        else
+        {
+            // Store original policy for revert functionality
+            _originalSessionPolicy = new SessionPolicy
+            {
+                SessionId = SessionId,
+                BlockExplicitContent = _sessionPolicy.BlockExplicitContent,
+                MaxRequestsPerListener = _sessionPolicy.MaxRequestsPerListener,
+                MinSongDurationMs = _sessionPolicy.MinSongDurationMs,
+                MaxSongDurationMs = _sessionPolicy.MaxSongDurationMs,
+                BlockedArtists = new List<string>(_sessionPolicy.BlockedArtists),
+                BlockedGenres = new List<string>(_sessionPolicy.BlockedGenres),
+                AllowDuplicateRequests = _sessionPolicy.AllowDuplicateRequests,
+                ShowRequestsToListeners = _sessionPolicy.ShowRequestsToListeners,
+                PolicyMessage = _sessionPolicy.PolicyMessage,
+                CreatedAt = _sessionPolicy.CreatedAt,
+                UpdatedAt = _sessionPolicy.UpdatedAt,
+                DjUserId = _djEmail
+            };
+        }
+
+        // Set up UI binding fields
+        _minDurationMinutes = _sessionPolicy.MinSongDurationMs.HasValue ? _sessionPolicy.MinSongDurationMs.Value / 60000.0 : null;
+        _maxDurationMinutes = _sessionPolicy.MaxSongDurationMs.HasValue ? _sessionPolicy.MaxSongDurationMs.Value / 60000.0 : null;
+        await LoadTipData(); // Add this line
+        await InitializeSignalRConnection();
+        await LoadRequestsData();
+
+        SessionActivityLogger.LogSessionCreated(SessionId, _djUserName);
+        StartDurationTimer();
+    }
+
+    private async Task InitializeSignalRConnection()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/songRequestHub"))
+                .Build();
+
+            // Handle new song requests
+            _hubConnection.On<object>("NewSongRequests", async (data) =>
+            {
+                await InvokeAsync(async () =>
+                {
+
+                    var dataJson = System.Text.Json.JsonSerializer.Serialize(data);
+
+
+                    // Parse dynamically using System.Text.Json
+                    using JsonDocument doc = JsonDocument.Parse(dataJson);
+                    JsonElement root = doc.RootElement;
+
+                    // Extract session info
+                    string sessionId = root.GetProperty("sessionId").GetString();
+                    int songsAdded = root.GetProperty("songsAdded").GetInt32();
+
+                    // Process new songs
+                    if (root.TryGetProperty("newSongs", out JsonElement newSongsElement))
+                    {
+                        foreach (JsonElement songElement in newSongsElement.EnumerateArray())
+                        {
+                            string trackId = songElement.GetProperty("trackId").GetString();
+                            string trackName = songElement.GetProperty("trackName").GetString();
+                            string artists = songElement.GetProperty("artists").GetString();
+                            string album = songElement.GetProperty("album").GetString();
+                            int duration = songElement.GetProperty("duration").GetInt32();
+                            DateTime requestedAt = songElement.GetProperty("requestedAt").GetDateTime();
+                            string requesterName = songElement.GetProperty("requesterName").GetString();
+                            string deviceId = songElement.GetProperty("requesterName").GetString();
+
+                            // Log the song request
+                            SessionActivityLogger.LogSongRequested(
+                                sessionId,
+                                trackName,
+                                artists, requesterName, deviceId);
+
+
+
+
+                        }
+                    }
+
+
+
+                    await LoadRequestsData();
+                    
+                    // Update auto-play queue if enabled
+                    if (_isAutoPlayEnabled)
+                    {
+                        UpdateNextSongInQueue();
+                    }
+                    
+                    StateHasChanged();
+                });
+            });
+
+            // Handle listener count updates
+            _hubConnection.On<object>("ListenerCountUpdate", async (data) =>
+            {
+                await InvokeAsync(() =>
+                {
+
+
+                    try
+                    {
+                        var dataJson = System.Text.Json.JsonSerializer.Serialize(data);
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        };
+                        var updateData = System.Text.Json.JsonSerializer.Deserialize<ListenerCountUpdate>(dataJson, options);
+                        var newCount = updateData?.ListenerCount ?? 0;
+                        if (newCount > _activeListeners)
+                        {
+                            // Someone joined
+                            //SessionActivityLogger.LogSessionJoined(SessionId, "Anonymous Listener");
+                        }
+                        else if (newCount < _activeListeners)
+                        {
+                            // Someone left
+                            SessionActivityLogger.LogSessionLeft(SessionId, "Anonymous Listener");
+                        }
+
+                        _activeListeners = updateData?.ListenerCount ?? 0;
+
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error parsing listener count update: {ex.Message}");
+                    }
+                });
+            });
+
+            await _hubConnection.StartAsync();
+            PrivateUser user = await SpotifyService.GetUser();
+            // Join as DJ and set initial policy
+            await _hubConnection.SendAsync("StartTakeRequestsSession", SessionId, user, _originalSessionPolicy);
+
+            // Send the current session policy to all listeners
+            await _hubConnection.SendAsync("UpdateSessionPolicy", SessionId, _originalSessionPolicy);
+
+
+
+            _hubConnection.On<Tip>("NewTip", async (tip) =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    // Add to recent tips
+                    _recentTips.Insert(0, tip);
+            
+                    // Mark as new for animation
+                    _newTipIds.Add(tip.Id);
+            
+                    // Update total
+                    _totalTipsReceived += tip.Amount;
+            
+                    // Log the tip received
+                    SessionActivityLogger.LogTipReceived(SessionId, tip.TipperName, tip.Amount, _djUserName);
+            
+                    // Show notification
+                    _statusMessage = $"🎉 New tip received: ${tip.Amount:F2} from {tip.TipperName}!";
+            
+                    StateHasChanged();
+            
+                    // Remove new indicator after animation
+                    _ = Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        _newTipIds.Remove(tip.Id);
+                        _statusMessage = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                });
+            });
+
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing SignalR: {ex.Message}");
+        }
+    }
+
+    private async Task LoadRequestsData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            // Get grouped song requests from cache service
+            var groupedSongs = await SongRequestCacheService.GetSessionSongsGroupedAsync(SessionId);
+
+            // Extract the songs and update statistics
+            _requestedSongs = groupedSongs.Select(g => g.Song).ToList();
+            _totalRequests = groupedSongs.Sum(g => g.RequestCount);
+            _totalUniqueRequests = groupedSongs.Count;
+
+            // Store grouped data for easy access to request counts and metadata
+            _songRequestGroups = groupedSongs;
+
+            // Initialize custom order if not set or if new songs were added
+            if (!_customOrderSongs.Any() || _customOrderSongs.Count != _requestedSongs.Count)
+            {
+                _customOrderSongs = new List<FullTrack>(_requestedSongs);
+            }
+            else
+            {
+                // Update custom order to include any new songs while preserving existing order
+                var newSongs = _requestedSongs.Where(s => !_customOrderSongs.Any(cs => cs.Id == s.Id)).ToList();
+                _customOrderSongs.AddRange(newSongs);
+
+                // Remove songs that are no longer in the requests
+                _customOrderSongs = _customOrderSongs.Where(cs => _requestedSongs.Any(s => s.Id == cs.Id)).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading requests: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshRequests()
+    {
+        await LoadRequestsData();
+        
+        // Update auto-play queue if enabled
+        if (_isAutoPlayEnabled)
+        {
+            UpdateNextSongInQueue();
+        }
+    }
+
+    private IEnumerable<FullTrack> GetDisplaySongs()
+    {
+        return _currentSortMode switch
+        {
+            SortMode.MostRecent => _requestedSongs.OrderByDescending(s => GetLatestRequestTime(s.Id)),
+            SortMode.Oldest => _requestedSongs.OrderBy(s => GetFirstRequestTime(s.Id)),
+            SortMode.MostRequested => _requestedSongs
+                .OrderByDescending(s => GetRequestCount(s.Id))
+                .ThenByDescending(s => GetLatestRequestTime(s.Id)),
+            SortMode.Custom => _customOrderSongs.Where(s => _requestedSongs.Any(r => r.Id == s.Id)),
+            _ => _requestedSongs
+        };
+    }
+
+    private async Task OnSortModeChanged()
+    {
+        // Reset custom order when switching from custom mode
+        if (_currentSortMode != SortMode.Custom)
+        {
+            _customOrderSongs = new List<FullTrack>(GetDisplaySongs());
+        }
+
+        // Update auto-play indices when sort order changes
+        if (_isAutoPlayEnabled)
+        {
+            var displaySongs = GetDisplaySongs().ToList();
+            if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
+            {
+                var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
+                _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
+            }
+            UpdateNextSongInQueue();
+        }
+
+        StateHasChanged();
+    }
+
+    private int GetRequestCount(string songId)
+    {
+        return _songRequestGroups.FirstOrDefault(g => g.Song.Id == songId)?.RequestCount ?? 0;
+    }
+
+    private DateTime GetFirstRequestTime(string songId)
+    {
+        return _songRequestGroups.FirstOrDefault(g => g.Song.Id == songId)?.FirstRequestedAt ?? DateTime.MinValue;
+    }
+
+    private DateTime GetLatestRequestTime(string songId)
+    {
+        return _songRequestGroups.FirstOrDefault(g => g.Song.Id == songId)?.LatestRequestedAt ?? DateTime.MinValue;
+    }
+
+    private List<string> GetRequesters(string songId)
+    {
+        return _songRequestGroups.FirstOrDefault(g => g.Song.Id == songId)?.RequesterNames ?? new List<string>();
+    }
+
+    // Replace your existing drag and drop methods with these fixed versions
+
+    private void OnDragStart(int index)
+    {
+        if (_currentSortMode != SortMode.Custom) return;
+
+        _draggedIndex = index;
+        _dragTargetIndex = -1;
+    }
+
+    private void OnDragEnter(int index)
+    {
+        if (_currentSortMode != SortMode.Custom || _draggedIndex < 0 || _draggedIndex == index) return;
+
+        _dragTargetIndex = index;
+
+    }
+
+    private void OnDragOver(int index)
+    {
+        // This prevents the default behavior and allows the drop
+        if (_currentSortMode == SortMode.Custom && _draggedIndex >= 0)
+        {
+            _dragTargetIndex = index;
+        }
+    }
+
+    private void OnDragLeave(int index)
+    {
+        // Only clear if we're actually leaving this specific target
+        if (_dragTargetIndex == index)
+        {
+            _dragTargetIndex = -1;
+        }
+    }
+
+    private void OnDrop(int targetIndex)
+    {
+        if (_currentSortMode != SortMode.Custom || _draggedIndex < 0 || _draggedIndex == targetIndex)
+        {
+            ResetDragState();
+            return;
+        }
+
+        try
+        {
+            var displaySongs = GetDisplaySongs().ToList();
+
+            if (_draggedIndex >= 0 && _draggedIndex < displaySongs.Count &&
+                targetIndex >= 0 && targetIndex < displaySongs.Count)
+            {
+                var draggedSong = displaySongs[_draggedIndex];
+                // Create a new list for the custom order
+                var newCustomOrder = new List<FullTrack>(_customOrderSongs);
+                // Remove the dragged item
+                newCustomOrder.Remove(draggedSong);
+                // Insert at the new position
+                var insertIndex = Math.Min(targetIndex, newCustomOrder.Count);
+                newCustomOrder.Insert(insertIndex, draggedSong);
+                // Update the custom order
+                _customOrderSongs = newCustomOrder;
+
+                // Update auto-play index if needed
+                if (_isAutoPlayEnabled && !string.IsNullOrEmpty(_currentlyPlayingSongId))
+                {
+                    var newDisplaySongs = GetDisplaySongs().ToList();
+                    var currentSongIndex = newDisplaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
+                    _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
+                    UpdateNextSongInQueue();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during drop: {ex.Message}");
+        }
+        finally
+        {
+            ResetDragState();
+            StateHasChanged();
+        }
+    }
+
+    private void ResetDragState()
+    {
+        _draggedIndex = -1;
+        _dragTargetIndex = -1;
+    }
+
+
+    private async Task PlaySong(string spotifyUri, int? songIndex = null)
+    {
+        try
+        {
+            _currentlyPlayingSongId = spotifyUri;
+            _isPlaying = true;
+
+            // Update auto-play index if provided
+            if (_isAutoPlayEnabled && songIndex.HasValue)
+            {
+                _currentAutoPlayIndex = songIndex.Value;
+                UpdateNextSongInQueue();
+            }
+
+            var result = await SpotifyService.PlaySongWithDeviceCheckAsync(spotifyUri);
+
+            var song = _requestedSongs.FirstOrDefault(s => s.Uri == spotifyUri);
+            if (song != null)
+            {
+                // Log the song being played
+                SessionActivityLogger.LogSongPlayed(
+                    SessionId,
+                    song.Name,
+                    string.Join(", ", song.Artists.Select(a => a.Name)),
+                    _djUserName // Replace with actual DJ name
+                );
+
+                // Set up monitoring for auto-play
+                if (_isAutoPlayEnabled)
+                {
+                    _currentSongStartTime = DateTime.Now;
+                    _currentSongDurationMs = song.DurationMs;
+                }
+            }
+
+
+            if (result.Success)
+            {
+                if (!string.IsNullOrEmpty(result.ActivatedDevice))
+                {
+                    _statusMessage = $"Activated {result.ActivatedDevice} and started playing";
+                    // Clear message after 3 seconds
+                    _ = Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        _statusMessage = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                }
+            }
+            else
+            {
+                _currentlyPlayingSongId = "";
+                _isPlaying = false;
+
+                if (result.RequiresUserAction)
+                {
+                    await ShowDeviceSelector();
+                }
+                else
+                {
+                    _statusMessage = result.Message;
+                }
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            SessionActivityLogger.LogError(SessionId, ex.Message, ex);
+            _currentlyPlayingSongId = "";
+            _isPlaying = false;
+            _statusMessage = $"Failed to play song: {ex.Message}";
+            Console.WriteLine($"Failed to play song: {ex.Message}");
+            StateHasChanged();
+        }
+    }
+
+    private async Task PauseSong()
+    {
+        try
+        {
+            var result = await SpotifyService.PausePlaybackWithDeviceCheckAsync();
+            _isPlaying = false;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to pause: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResumeSong()
+    {
+        try
+        {
+            var result = await SpotifyService.ResumePlaybackWithDeviceCheckAsync();
+
+            if (result.Success)
+            {
+                _isPlaying = true;
+
+                if (!string.IsNullOrEmpty(result.ActivatedDevice))
+                {
+                    _statusMessage = $"Activated {result.ActivatedDevice} and resumed playback";
+                    _ = Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        _statusMessage = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                }
+            }
+            else
+            {
+                if (result.RequiresUserAction)
+                {
+                    await ShowDeviceSelector();
+                }
+
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to resume: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowDeviceSelector()
+    {
+        var deviceResponse = await SpotifyService.GetAvailableDevicesAsync();
+
+        if (deviceResponse.Success && deviceResponse.Devices.Any())
+        {
+            _availableDevices = deviceResponse.Devices;
+            _showDeviceSelector = true;
+        }
+        else
+        {
+            _statusMessage = "No Spotify devices found. Please open Spotify on a device (desktop, mobile, or web player) and try again.";
+        }
+    }
+
+    private async Task SelectDevice(string deviceId)
+    {
+        var success = await SpotifyService.ActivateDeviceAsync(deviceId);
+
+        if (success)
+        {
+            var deviceName = _availableDevices.FirstOrDefault(d => d.Id == deviceId)?.Name ?? "device";
+            _statusMessage = $"Activated {deviceName}. You can now play music.";
+            _showDeviceSelector = false;
+
+            // Clear message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _statusMessage = "";
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            _statusMessage = "Failed to activate device. Please try again.";
+        }
+
+        StateHasChanged();
+    }
+
+    private void CancelDeviceSelector()
+    {
+        _showDeviceSelector = false;
+        StateHasChanged();
+    }
+
+    private async Task RemoveSongRequest(string songId)
+    {
+        try
+        {
+            // Remove from cache service first
+            var result = await SongRequestCacheService.RemoveSongRequestAsync(SessionId, songId);
+
+            if (result.Success)
+            {
+                // Remove from local lists
+                _requestedSongs.RemoveAll(s => s.Id == songId);
+                _customOrderSongs.RemoveAll(s => s.Id == songId);
+                _songRequestGroups.RemoveAll(g => g.Song.Id == songId);
+
+                // Update statistics
+                _totalRequests = _songRequestGroups.Sum(g => g.RequestCount);
+                _totalUniqueRequests = _songRequestGroups.Count;
+
+                // Update auto-play indices if needed
+                if (_isAutoPlayEnabled)
+                {
+                    var displaySongs = GetDisplaySongs().ToList();
+                    if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
+                    {
+                        var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
+                        _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : Math.Max(0, _currentAutoPlayIndex - 1);
+                    }
+                    UpdateNextSongInQueue();
+                }
+
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Failed to remove song request: {result.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing song request: {ex.Message}");
+        }
+    }
+
+    private async Task CopyRequestUrl()
+    {
+        var url = GetRequestUrl();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            // TODO: Show success toast
+        }
+        catch
+        {
+            Console.WriteLine($"Request URL: {url}");
+        }
+    }
+
+    private async Task CopyQrDisplayUrl()
+    {
+        var url = GetQrDisplayUrl();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            // TODO: Show success toast
+        }
+        catch
+        {
+            Console.WriteLine($"QR Display URL: {url}");
+        }
+    }
+
+    private string GetRequestUrl()
+    {
+        if (_isSessionOver)
+            return "Session is Over";
+
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/request/{SessionId}";
+    }
+
+    private string GetQrDisplayUrl()
+    {
+        if (_isSessionOver)
+            return "Session is Over";
+
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/qr/{SessionId}";
+    }
+
+    private void ShowStopConfirmation()
+    {
+        _showStopConfirmation = true;
+    }
+
+    private void CancelStop()
+    {
+        _showStopConfirmation = false;
+    }
+
+    private async Task ConfirmStop()
+    {
+        _showStopConfirmation = false;
+
+        try
+        {
+            // Disable auto-play when stopping session
+            if (_isAutoPlayEnabled)
+            {
+                await DisableAutoPlay();
+            }
+
+            // Stop accepting requests via SignalR
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("StopAcceptingRequests", SessionId);
+            }
+
+            SessionActivityLogger.LogSessionEnded(SessionId, _djUserName, _requestedSongs.Count, DateTime.Now - _sessionStartTime);
+
+            // Deactivate session in cache
+            await SongRequestCacheService.DeactivateSessionAsync(SessionId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error stopping session: {ex.Message}");
+        }
+
+        _isSessionOver = true;
+        StateHasChanged();
+        //Navigation.NavigateTo("/dj/startsession");
+    }
+
+    private void ShowClearAllConfirmation()
+    {
+        _showClearAllConfirmation = true;
+    }
+
+    private void CancelClearAll()
+    {
+        _showClearAllConfirmation = false;
+    }
+
+    private async Task ConfirmClearAll()
+    {
+        _showClearAllConfirmation = false;
+
+        try
+        {
+            // Clear from cache service first
+            var result = await SongRequestCacheService.ClearAllRequestsAsync(SessionId);
+
+            if (result.Success)
+            {
+                // Clear local lists
+                _requestedSongs.Clear();
+                _customOrderSongs.Clear();
+                _songRequestGroups.Clear();
+                _totalRequests = 0;
+                _totalUniqueRequests = 0;
+
+                // Reset auto-play state
+                if (_isAutoPlayEnabled)
+                {
+                    _currentAutoPlayIndex = -1;
+                    _nextSongInQueue = null;
+                }
+
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Failed to clear all requests: {result.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error clearing all requests: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/dj/startsession");
+    }
+
+    private string GetSessionDuration()
+    {
+        if (_isSessionOver)
+            return _sessionTime;
+
+        var duration = DateTime.Now - _sessionStartTime;
+
+        _sessionTime = $"{duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+        return _sessionTime;
+    }
+
+    private void StartDurationTimer()
+    {
+        _durationTimer = new System.Threading.Timer(async _ => { await InvokeAsync(StateHasChanged); }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _durationTimer?.Dispose();
+        await StopPlaybackMonitoring();
+
+        if (_hubConnection is not null)
+        {
+            try
+            {
+                await _hubConnection.SendAsync("LeaveDJSession", SessionId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error leaving DJ session: {ex.Message}");
+            }
+
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    // DTO classes
+    public class ListenerCountUpdate
+    {
+        public string SessionId { get; set; } = "";
+        public int ListenerCount { get; set; }
+    }
+
+}

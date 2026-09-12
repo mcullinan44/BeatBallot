@@ -1,0 +1,50 @@
+﻿@* VotingSectionComponent.razor *@
+
+<div class="voting-wrapper">
+    @if (!IsDisabled)
+    {
+        <SongListComponent Songs="@Songs"
+                           VotesRemaining="@VotesRemaining"
+                           OnSongVote="@HandleSongVote"
+                           OnOptionsRequested="@ShowOptions"/>
+
+@*         <OptionsMenuComponent IsVisible="@ShowOptionsMenu"
+                              CurrentVotes="@VotesRemaining"
+                              OnClose="@HideOptions"
+                              OnPurchase="@HandlePurchase"/> *@
+
+    }
+</div>
+
+@code {
+    [Parameter] public List<SongVoteInfo> Songs { get; set; } = new();
+    [Parameter] public int VotesRemaining { get; set; } = 10;
+    [Parameter] public EventCallback<SongVoteInfo> OnVote { get; set; }
+    [Parameter] public EventCallback<OptionsMenuComponent.VotePackage> OnVotePurchase { get; set; }
+    [Parameter] public bool IsDisabled { get; set; } = false;
+
+    private bool _showOptionsMenu = false;
+
+
+
+    private async Task HandleSongVote(SongVoteInfo song)
+    {
+        await OnVote.InvokeAsync(song);
+    }
+
+    private void ShowOptions()
+    {
+        _showOptionsMenu = true;
+    }
+
+    private void HideOptions()
+    {
+        _showOptionsMenu = false;
+    }
+
+    private async Task HandlePurchase(OptionsMenuComponent.VotePackage package)
+    {
+        await OnVotePurchase.InvokeAsync(package);
+        _showOptionsMenu = false;
+    }
+}

@@ -1,0 +1,202 @@
+﻿@using BeatBallot.Web.Services.Local
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject ITokenProvider TokenProvider
+@* DJHeaderComponent.razor *@
+
+<div class="dj-header">
+    <div class="header-left">
+        <div class="logo-section">
+            <div class="logo"><img src="header-icon-small.png" /></div>
+            <div class="logo-subtitle"><img src="image 2.png"/></div>
+        </div>
+    </div>
+
+    <div class="header-right">
+        <div class="user-account">
+            <div class="user-info">
+                <div class="user-avatar">
+                    @if (!string.IsNullOrEmpty(UserProfileImage))
+                    {
+                        <img src="@UserProfileImage" alt="@UserDisplayName" class="avatar-image" />
+                    }
+                    else
+                    {
+                        <div class="avatar-placeholder">@GetInitials()</div>
+                    }
+                </div>
+                <div class="user-details">
+                    <div class="user-name">@UserDisplayName</div>
+                    <div class="user-status">@UserStatus</div>
+                </div>
+            </div>
+
+            <div class="account-dropdown" @onclick="ToggleDropdown">
+                <button class="dropdown-toggle" @onclick:stopPropagation="true">
+                    <span class="dropdown-icon" @onclick="ShowSignOutModal">Sign Out</span>
+                </button>
+
+                @*          <LogoutButtonComponent OnLogout="@HandleDJLogout"/> *@
+
+                @if (_showDropdown)
+                {
+                    <div class="dropdown-menu">
+                        <div class="dropdown-item" @onclick="ViewProfile">
+                            <span class="item-icon">👤</span>
+                            <span>View Profile</span>
+                        </div>
+                        <div class="dropdown-item" @onclick="AccountSettings">
+                            <span class="item-icon">⚙️</span>
+                            <span>Account Settings</span>
+                        </div>
+                        <div class="dropdown-item" @onclick="ConnectSpotify">
+                            <span class="item-icon">🎵</span>
+                            <span>Spotify Connection</span>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item logout" @onclick="ShowSignOutModal">
+                            <span class="item-icon">🚪</span>
+                            <span>Sign Out</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Sign Out Confirmation Modal *@
+@if (_showSignOutModal)
+{
+    <div class="modal-overlay" @onclick="CancelSignOut">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Sign Out</h3>
+                <button class="modal-close" @onclick="CancelSignOut">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">⚠️</div>
+                <p class="modal-message">
+                    Are you sure you want to sign out?
+                </p>
+                <div class="warning-details">
+                    <ul>
+                        <li>All live session data will be lost</li>
+                        <li>Active sessions will be terminated</li>
+                        <li>You'll need to generate new sessions and QR codes</li>
+                        <li>Connected users will be disconnected</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" @onclick="CancelSignOut">
+                    Cancel
+                </button>
+                <button class="btn btn-confirm" @onclick="ConfirmSignOut">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string UserDisplayName { get; set; } = "DJ Master";
+    [Parameter] public string UserProfileImage { get; set; } = "";
+    [Parameter] public string UserStatus { get; set; } = "Online";
+    [Parameter] public EventCallback OnProfileView { get; set; }
+    [Parameter] public EventCallback OnAccountSettings { get; set; }
+    [Parameter] public EventCallback OnSpotifyConnect { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
+    private HubConnection? _hubConnection;
+    private bool _showDropdown = false;
+    private bool _showSignOutModal = false;
+
+    private void ToggleDropdown()
+    {
+        _showDropdown = !_showDropdown;
+    }
+
+    private void ShowSignOutModal()
+    {
+        _showDropdown = false; // Close dropdown
+        _showSignOutModal = true;
+    }
+
+    private void CancelSignOut()
+    {
+        _showSignOutModal = false;
+    }
+
+    private async Task ConfirmSignOut()
+    {
+        _showSignOutModal = false;
+        await Logout();
+    }
+
+    private string GetInitials()
+    {
+        if (string.IsNullOrEmpty(UserDisplayName)) return "DJ";
+
+        var names = UserDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (names.Length >= 2)
+            return $"{names[0][0]}{names[1][0]}".ToUpper();
+
+        return names[0].Substring(0, Math.Min(2, names[0].Length)).ToUpper();
+    }
+
+    private async Task ViewProfile()
+    {
+        _showDropdown = false;
+        await OnProfileView.InvokeAsync();
+    }
+
+    private async Task AccountSettings()
+    {
+        _showDropdown = false;
+        await OnAccountSettings.InvokeAsync();
+    }
+
+    private async Task ConnectSpotify()
+    {
+        _showDropdown = false;
+        await OnSpotifyConnect.InvokeAsync();
+    }
+
+    private async Task Logout()
+    {
+        _showDropdown = false;
+
+        await TokenProvider.ClearTokensAsync();
+
+        Navigation.NavigateTo("/login");
+
+        await OnLogout.InvokeAsync();
+    }
+
+    private async Task HandleDjLogout()
+    {
+        try
+        {
+            // Clear any local state
+            // playlist = null;
+            // currentlyPlaying = null;
+
+            // Optional: Show ending message
+            // ShowMessage("Session ended successfully");
+
+            await Task.Delay(500); // Brief delay before redirect
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during DJ logout: {ex.Message}");
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        // Close dropdown when clicking outside
+        // This would typically be handled with JavaScript interop
+    }
+}

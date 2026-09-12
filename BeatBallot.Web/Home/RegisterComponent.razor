@@ -1,0 +1,107 @@
+﻿@* RegisterComponent.razor *@
+@page "/register"
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">BeatBallot</div>
+            <div class="auth-subtitle">Join as a DJ</div>
+        </div>
+
+        <div class="auth-content">
+            <div class="spotify-section">
+                <div class="spotify-intro">
+                    <div class="spotify-icon">🎵</div>
+                    <h3>Connect with Spotify</h3>
+                    <p>Create your DJ account using Spotify to access your music library and start creating interactive playlists.</p>
+                </div>
+
+                <button class="spotify-register-btn" @onclick="RegisterWithSpotify" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span class="loading-spinner"></span>
+                        <span>Creating Account...</span>
+                    }
+                    else
+                    {
+                        <div class="spotify-btn-content">
+                            <div class="spotify-logo">🎵</div>
+                            <span>Sign up with Spotify</span>
+                        </div>
+                    }
+                </button>
+
+                <div class="spotify-benefits">
+                    <h4>Why connect with Spotify?</h4>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🎶</span>
+                        <div class="benefit-text">
+                            <strong>Access Your Library</strong>
+                            <p>Import your playlists and favorite tracks instantly</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🎧</span>
+                        <div class="benefit-text">
+                            <strong>Professional DJ Tools</strong>
+                            <p>Advanced playlist management and crowd interaction</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🗳️</span>
+                        <div class="benefit-text">
+                            <strong>Audience Voting</strong>
+                            <p>Let your crowd choose what plays next</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">📊</span>
+                        <div class="benefit-text">
+                            <strong>Real-time Analytics</strong>
+                            <p>Track what your audience loves most</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="/login" class="login-link">Sign in here</a></p>
+                <p class="privacy-note">We only access your public Spotify profile and music library. Your personal data and listening history remain private.</p>
+                <p class="terms-note">By signing up, you agree to our <a href="/terms" class="terms-link">Terms of Service</a> and <a href="/privacy" class="terms-link">Privacy Policy</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+        
+
+@code {
+    private bool _isLoading;
+
+    private async Task RegisterWithSpotify()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try 
+        {
+            // TODO: Implement Spotify OAuth registration
+            // Redirect to Spotify authorization URL with required scopes
+            // Example scopes: user-read-email, playlist-read-private, playlist-modify-public
+            // NavigationManager.NavigateTo("https://accounts.spotify.com/authorize?...")
+            await Task.Delay(1500); // Simulate OAuth redirect
+            
+            // After successful authentication, collect additional DJ information if needed
+            // NavigationManager.NavigateTo("/complete-profile");
+        }
+        catch (Exception ex)
+        {
+            // Handle registration error
+            Console.WriteLine($"Spotify registration error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

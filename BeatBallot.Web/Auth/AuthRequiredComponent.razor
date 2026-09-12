@@ -1,0 +1,63 @@
+﻿@using BeatBallot.Web.Services.Local
+
+@* Components/AuthRequired.razor *@
+
+@inject NavigationManager Navigation
+@inject ITokenProvider TokenProvider
+
+@if (_isLoading)
+{
+    <div class="auth-loading">
+        <div class="loading-spinner"></div>
+        <p>Checking authentication...</p>
+    </div>
+}
+else if (_isAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    <!-- This will never show because we redirect, but kept for safety -->
+    <div class="auth-required">
+        <p>Authentication required. Redirecting to login...</p>
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _isLoading = true;
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthentication();
+    }
+
+    private async Task CheckAuthentication()
+    {
+        try
+        {
+            _isAuthenticated = !string.IsNullOrEmpty(await TokenProvider.GetAccessTokenAsync());
+
+            if (!_isAuthenticated)
+            {
+                // Redirect to login page
+                Navigation.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Authentication check failed: {ex.Message}");
+            Navigation.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

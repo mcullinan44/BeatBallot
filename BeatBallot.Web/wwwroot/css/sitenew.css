@@ -1,0 +1,615 @@
+﻿/* BeatBallot CSS Refactoring Guide - Consolidated Styles with Source Attribution */
+
+/* ===== 1. GLOBAL DESIGN TOKENS ===== */
+/* 
+Sources: Color analysis across Admin.razor.css, DJHeader.razor.css, Login.razor.css, 
+Register.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css, 
+ManageLive.razor.css, RequestSong.razor.css, site.css
+*/
+:root {
+    /* Primary Colors - Consolidated from 15+ different hex variations */
+    --bb-red-primary: #e74c3c; /* Most frequent: Admin.razor.css, DJHeader.razor.css, StartSession.razor.css */
+    --bb-red-dark: #c0392b; /* From: Admin.razor.css, DJHeader.razor.css, ManageLive.razor.css */
+    --bb-orange-primary: #f39c12; /* Most frequent: Admin.razor.css, Home.razor.css, site.css */
+    --bb-orange-dark: #e67e22; /* From: Register.razor.css, site.css */
+    --bb-blue-primary: #3498db; /* Most frequent: Admin.razor.css, RequestSong.razor.css, ManageTakeRequests.razor.css */
+    --bb-blue-dark: #2980b9; /* From: RequestSong.razor.css, ManageLive.razor.css */
+    --bb-green-primary: #2ecc71; /* Most frequent: DJHeader.razor.css, ManageTakeRequests.razor.css, StartSession.razor.css */
+    --bb-green-dark: #27ae60; /* From: ManageLive.razor.css, site.css */
+    /* Grayscale - Standardized from rgba patterns across all components */
+    --bb-gray-50: rgba(255,255,255,0.05); /* From: Login.razor.css, Register.razor.css, RequestSong.razor.css */
+    --bb-gray-100: rgba(255,255,255,0.1); /* Most frequent across all components */
+    --bb-gray-200: rgba(255,255,255,0.2); /* From: Admin.razor.css, DJSidebar.razor.css, ManageTakeRequests.razor.css */
+    --bb-gray-300: rgba(255,255,255,0.3); /* From: AuthCallback.razor.css, ManageLive.razor.css */
+    --bb-gray-700: rgba(255,255,255,0.7); /* From: Home.razor.css, RequestSong.razor.css, QRDisplay.razor.css */
+    --bb-gray-800: rgba(255,255,255,0.8); /* From: Login.razor.css, DJHeader.razor.css */
+    --bb-gray-900: rgba(255,255,255,0.9); /* From: Register.razor.css, QRDisplay.razor.css */
+    /* Spacing Scale - Derived from padding/margin analysis across all files */
+    --bb-space-xs: 4px; /* From: ManageTakeRequests.razor.css, RequestSong.razor.css */
+    --bb-space-sm: 8px; /* Most frequent: Admin.razor.css, DJSidebar.razor.css, ManageLive.razor.css */
+    --bb-space-md: 12px; /* Most frequent across all components */
+    --bb-space-lg: 20px; /* From: Admin.razor.css, Home.razor.css, StartSession.razor.css */
+    --bb-space-xl: 30px; /* From: Admin.razor.css, Home.razor.css, QRDisplay.razor.css */
+    --bb-space-2xl: 40px; /* From: Login.razor.css, Register.razor.css, QRDisplay.razor.css */
+    /* Border Radius - Standardized from border-radius analysis */
+    --bb-radius-sm: 8px; /* Most frequent: Admin.razor.css, DJSidebar.razor.css, ManageTakeRequests.razor.css */
+    --bb-radius-md: 12px; /* Most frequent across all components */
+    --bb-radius-lg: 20px; /* From: Admin.razor.css, Login.razor.css, StartSession.razor.css */
+    --bb-radius-xl: 30px; /* From: QRDisplay.razor.css, QRTakingRequests.razor.css */
+    /* Z-index Scale - Consolidated from scattered z-index values */
+    --bb-z-dropdown: 1000; /* Base from: DJHeader.razor.css, DJSidebar.razor.css */
+    --bb-z-sticky: 1010; /* From: Admin.razor.css, DJHeader.razor.css */
+    --bb-z-fixed: 1020; /* From: LogoutButton.razor.css */
+    --bb-z-modal-backdrop: 1030; /* Base increment */
+    --bb-z-modal: 1040; /* From: Admin.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css */
+    --bb-z-popover: 1050; /* Base increment */
+    --bb-z-tooltip: 1060; /* From: ManageTakeRequests.razor.css */
+}
+
+/* ===== 2. CONSOLIDATED KEYFRAME ANIMATIONS ===== */
+
+/* 
+Sources: Admin.razor.css, AuthCallback.razor.css, Register.razor.css, 
+RequestSong.razor.css, site.css (identical implementations)
+*/
+@keyframes bb-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 
+Sources: Admin.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css, 
+ManageLive.razor.css, QRDisplay.razor.css, site.css (6 variations consolidated)
+*/
+@keyframes bb-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+/* 
+Sources: DJHeader.razor.css, ManageTakeRequests.razor.css (2 implementations)
+*/
+@keyframes bb-fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* 
+Sources: DJHeader.razor.css, ManageTakeRequests.razor.css (similar sliding animations)
+*/
+@keyframes bb-slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 
+Sources: ManageTakeRequests.razor.css, site.css (glow effect variations)
+*/
+@keyframes bb-glow {
+    from {
+        box-shadow: 0 0 15px rgba(231,76,60,0.4);
+    }
+
+    to {
+        box-shadow: 0 0 25px rgba(231,76,60,0.6);
+    }
+}
+
+/* 
+Sources: ManageTakeRequests.razor.css, site.css (bounce animations)
+*/
+@keyframes bb-bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+/* ===== 3. UNIFIED BUTTON SYSTEM ===== */
+
+/* 
+Sources: Consolidated from .control-btn (Admin.razor.css, ManageTakeRequests.razor.css, ManageLive.razor.css),
+.action-btn (StartSession.razor.css), .quick-action-btn (Home.razor.css, StartSession.razor.css),
+.primary-btn (StartSession.razor.css), and various other button implementations
+*/
+.bb-btn {
+    /* Base button styles */
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bb-space-sm);
+    padding: var(--bb-space-md) var(--bb-space-lg);
+    border-radius: var(--bb-radius-md);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    font-size: 0.95em;
+    justify-content: center;
+}
+
+    /* 
+Sources: Disabled state patterns from .login-btn (Admin.razor.css), 
+.spotify-login-btn (Login.razor.css), .play-btn (ManageTakeRequests.razor.css)
+*/
+    .bb-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+
+/* Button Variants */
+
+/* 
+Sources: .login-btn (Admin.razor.css), .primary-btn (StartSession.razor.css),
+.confirm-btn (Admin.razor.css, StartSession.razor.css), .spotify-login-btn (Register.razor.css)
+*/
+.bb-btn--primary {
+    background: linear-gradient(45deg, var(--bb-red-primary), var(--bb-orange-primary));
+    color: white;
+    box-shadow: 0 4px 15px rgba(231,76,60,0.3);
+}
+
+    .bb-btn--primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(231,76,60,0.4);
+    }
+
+/* 
+Sources: .control-btn (Admin.razor.css, ManageLive.razor.css), 
+.quick-action-btn.secondary (Home.razor.css), .cancel-btn (multiple files)
+*/
+.bb-btn--secondary {
+    background: var(--bb-gray-100);
+    border: 1px solid var(--bb-gray-200);
+    color: white;
+}
+
+    .bb-btn--secondary:hover:not(:disabled) {
+        background: var(--bb-gray-200);
+        transform: translateY(-2px);
+    }
+
+/* 
+Sources: .play-btn (ManageTakeRequests.razor.css, ManageLive.razor.css),
+.go-live-btn hover state (StartSession.razor.css), .request-btn (RequestSong.razor.css)
+*/
+.bb-btn--success {
+    background: rgba(46,204,113,0.2);
+    border: 1px solid rgba(46,204,113,0.3);
+    color: var(--bb-green-primary);
+}
+
+    .bb-btn--success:hover:not(:disabled) {
+        background: rgba(46,204,113,0.3);
+        transform: translateY(-1px);
+    }
+
+/* 
+Sources: .remove-btn (RequestSong.razor.css), .clear-all-btn (ManageTakeRequests.razor.css),
+.manage-btn (StartSession.razor.css), .remove-corner-btn (ManageTakeRequests.razor.css)
+*/
+.bb-btn--danger {
+    background: rgba(231,76,60,0.2);
+    border: 1px solid rgba(231,76,60,0.3);
+    color: var(--bb-red-primary);
+}
+
+    .bb-btn--danger:hover:not(:disabled) {
+        background: rgba(231,76,60,0.3);
+        transform: translateY(-1px);
+    }
+
+/* Button Sizes */
+
+/* 
+Sources: Smaller button patterns from .action-btn (StartSession.razor.css),
+.options-btn (SongList.razor.css), .copy-btn (ManageTakeRequests.razor.css)
+*/
+.bb-btn--sm {
+    padding: var(--bb-space-sm) var(--bb-space-md);
+    font-size: 0.85em;
+}
+
+/* 
+Sources: .spotify-login-btn (Login.razor.css), .spotify-register-btn (Register.razor.css),
+.submit-requests-btn (RequestSong.razor.css)
+*/
+.bb-btn--lg {
+    padding: 18px var(--bb-space-xl);
+    font-size: 1.1em;
+}
+
+/* ===== 4. UNIFIED MODAL SYSTEM ===== */
+
+/* 
+Sources: .modal-overlay from Admin.razor.css, DJHeader.razor.css, StartSession.razor.css,
+ManageTakeRequests.razor.css, ManageLive.razor.css, RequestSong.razor.css (6+ implementations)
+*/
+.bb-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--bb-z-modal-backdrop);
+    animation: bb-fadeIn 0.3s ease;
+}
+
+/* 
+Sources: .confirmation-modal (Admin.razor.css, StartSession.razor.css),
+.device-selector-modal (ManageTakeRequests.razor.css), .success-modal (RequestSong.razor.css),
+.modal-content (DJHeader.razor.css)
+*/
+.bb-modal {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    border: 1px solid var(--bb-gray-200);
+    border-radius: var(--bb-radius-lg);
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: bb-slideIn 0.3s ease;
+    z-index: var(--bb-z-modal);
+}
+
+/* 
+Sources: .modal-header from Admin.razor.css, DJHeader.razor.css, StartSession.razor.css,
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-modal__header {
+    padding: var(--bb-space-lg);
+    border-bottom: 1px solid var(--bb-gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* 
+Sources: .modal-title from Admin.razor.css, DJHeader.razor.css, StartSession.razor.css,
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-modal__title {
+    color: white;
+    font-size: 1.3em;
+    font-weight: bold;
+    margin: 0;
+}
+
+/* 
+Sources: .close-modal-btn (Admin.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css),
+.modal-close (DJHeader.razor.css)
+*/
+.bb-modal__close {
+    background: none;
+    border: none;
+    color: var(--bb-gray-700);
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.3s ease;
+}
+
+    .bb-modal__close:hover {
+        color: white;
+    }
+
+/* 
+Sources: .modal-content (Admin.razor.css, StartSession.razor.css), 
+.modal-body (DJHeader.razor.css)
+*/
+.bb-modal__content {
+    padding: var(--bb-space-xl);
+}
+
+/* 
+Sources: .modal-actions from Admin.razor.css, DJHeader.razor.css, StartSession.razor.css,
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-modal__actions {
+    display: flex;
+    gap: 15px;
+    padding: 0 var(--bb-space-xl) var(--bb-space-xl) var(--bb-space-xl);
+}
+
+/* Modal Variants */
+
+/* 
+Sources: Confirmation modal styling from Admin.razor.css, StartSession.razor.css,
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-modal--confirmation .bb-modal__header {
+    background: rgba(231,76,60,0.1);
+    border-bottom-color: rgba(231,76,60,0.2);
+}
+
+.bb-modal--confirmation .bb-modal__title {
+    color: var(--bb-red-primary);
+}
+
+/* ===== 5. LOADING SPINNER COMPONENT ===== */
+
+/* 
+Sources: .loading-spinner from Admin.razor.css, AuthCallback.razor.css, 
+Login.razor.css, Register.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css,
+RequestSong.razor.css, site.css (8+ implementations with size variations)
+*/
+.bb-loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--bb-gray-300);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: bb-spin 1s linear infinite;
+    display: inline-block;
+}
+
+/* 
+Sources: Smaller spinner variations from Login.razor.css, Register.razor.css
+*/
+.bb-loading-spinner--sm {
+    width: 12px;
+    height: 12px;
+    border-width: 1.5px;
+}
+
+/* 
+Sources: Larger spinner from AuthCallback.razor.css, AuthRequired.razor.css
+*/
+.bb-loading-spinner--lg {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+}
+
+/* ===== 6. CARD SYSTEM ===== */
+
+/* 
+Sources: .stat-card (Admin.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css, ManageLive.razor.css),
+.overview-card (Home.razor.css), .playlist-card (StartSession.razor.css),
+.qr-container (QRDisplay.razor.css, QRTakingRequests.razor.css)
+*/
+.bb-card {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--bb-gray-100);
+    border-radius: var(--bb-radius-lg);
+    padding: var(--bb-space-xl);
+    transition: all 0.3s ease;
+}
+
+    .bb-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--bb-gray-200);
+    }
+
+/* 
+Sources: .stat-card layout from Admin.razor.css, StartSession.razor.css, 
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-card--stat {
+    display: flex;
+    align-items: center;
+    gap: var(--bb-space-lg);
+}
+
+/* 
+Sources: .stat-icon from Admin.razor.css, StartSession.razor.css, 
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-card__icon {
+    font-size: 2.5em;
+    opacity: 0.8;
+}
+
+/* 
+Sources: .stat-content from Admin.razor.css, StartSession.razor.css, 
+ManageTakeRequests.razor.css, ManageLive.razor.css
+*/
+.bb-card__content {
+    flex: 1;
+}
+
+/* 
+Sources: .stat-number from Admin.razor.css, StartSession.razor.css, 
+ManageTakeRequests.razor.css, ManageLive.razor.css, Home.razor.css
+*/
+.bb-card__number {
+    color: var(--bb-orange-primary);
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+/* 
+Sources: .stat-label from Admin.razor.css, StartSession.razor.css, 
+ManageTakeRequests.razor.css, ManageLive.razor.css, Home.razor.css
+*/
+.bb-card__label {
+    color: var(--bb-gray-700);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== 7. EMPTY STATE COMPONENT ===== */
+
+/* 
+Sources: .empty-state (StartSession.razor.css, RequestSong.razor.css),
+.empty-requests (ManageTakeRequests.razor.css), .no-logs (Admin.razor.css)
+*/
+.bb-empty-state {
+    text-align: center;
+    padding: 80px var(--bb-space-lg);
+    color: var(--bb-gray-700);
+}
+
+/* 
+Sources: .empty-icon (StartSession.razor.css, RequestSong.razor.css),
+.empty-icon (Admin.razor.css), .empty-icon (ManageTakeRequests.razor.css)
+*/
+.bb-empty-state__icon {
+    font-size: 4em;
+    margin-bottom: var(--bb-space-lg);
+    opacity: 0.7;
+}
+
+/* 
+Sources: h2 styling within empty states from StartSession.razor.css, 
+RequestSong.razor.css, ManageTakeRequests.razor.css
+*/
+.bb-empty-state__title {
+    color: white;
+    font-size: 2em;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+/* 
+Sources: p styling within empty states from StartSession.razor.css, 
+RequestSong.razor.css, ManageTakeRequests.razor.css
+*/
+.bb-empty-state__description {
+    font-size: 1.1em;
+    max-width: 400px;
+    margin: 0 auto var(--bb-space-xl) auto;
+    line-height: 1.5;
+}
+
+/* ===== 8. UTILITY CLASSES ===== */
+
+/* 
+Sources: Text alignment patterns observed across Login.razor.css, Register.razor.css,
+QRDisplay.razor.css, QRTakingRequests.razor.css, RequestSong.razor.css
+*/
+.bb-text-center {
+    text-align: center;
+}
+
+.bb-text-left {
+    text-align: left;
+}
+
+.bb-text-right {
+    text-align: right;
+}
+
+/* 
+Sources: Margin patterns observed across all component files
+*/
+.bb-mb-sm {
+    margin-bottom: var(--bb-space-sm);
+}
+
+.bb-mb-md {
+    margin-bottom: var(--bb-space-md);
+}
+
+.bb-mb-lg {
+    margin-bottom: var(--bb-space-lg);
+}
+
+.bb-mb-xl {
+    margin-bottom: var(--bb-space-xl);
+}
+
+/* 
+Sources: Flexbox patterns from DJHeader.razor.css, Admin.razor.css, 
+Home.razor.css, StartSession.razor.css, ManageTakeRequests.razor.css
+*/
+.bb-flex {
+    display: flex;
+}
+
+.bb-flex-col {
+    flex-direction: column;
+}
+
+.bb-items-center {
+    align-items: center;
+}
+
+.bb-justify-center {
+    justify-content: center;
+}
+
+.bb-justify-between {
+    justify-content: space-between;
+}
+
+/* 
+Sources: Display utility patterns from various components
+*/
+.bb-hidden {
+    display: none;
+}
+
+.bb-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ===== 9. RESPONSIVE UTILITIES ===== */
+
+/* 
+Sources: Media query patterns from DJLayout.razor.css, AdminLayout.razor.css, 
+site.css, QRDisplay.razor.css, QRTakingRequests.razor.css
+*/
+@media (max-width: 768px) {
+    .bb-hidden-mobile {
+        display: none !important;
+    }
+
+    .bb-block-mobile {
+        display: block !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .bb-hidden-desktop {
+        display: none !important;
+    }
+
+    .bb-block-desktop {
+        display: block !important;
+    }
+}

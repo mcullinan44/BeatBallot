@@ -1,0 +1,36 @@
+﻿.stats {
+    background: rgba(0,0,0,0.6);
+    padding: 15px 20px;
+    color: white;
+    text-align: center;
+    margin-top: 20px;
+}
+
+.stats-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.stat-label {
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.7);
+    margin-top: 5px;
+}

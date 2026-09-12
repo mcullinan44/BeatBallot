@@ -1,0 +1,182 @@
+﻿@* DJLayoutComponent.razor *@
+@using BeatBallot.Web.Services.Spotify
+@using SpotifyAPI.Web
+@using BeatBallot.Web.Auth
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject SpotifyService SpotifyService
+
+@if (_isInitialized)
+{
+    <PageTitle>BeatBallot</PageTitle>
+    <AuthRequiredComponent>
+        <div class="dj-dashboard">
+            <DJHeaderComponent UserDisplayName="@_currentUser.DisplayName"
+                               UserProfileImage="@_currentUser.ProfileImage"
+                               UserStatus="@_currentUser.Status"
+                               OnProfileView="@HandleProfileView"
+                               OnAccountSettings="@HandleAccountSettings"
+                               OnSpotifyConnect="@HandleSpotifyConnect"/>
+
+            <div class="dashboard-content">
+                <DJSidebarComponent IsCollapsed="@_sidebarCollapsed"
+                                    ActivePage="@GetActivePage()"
+                                    PlaylistCount="@_dashboardStats.PlaylistCount"
+                                    HistoryCount="@_dashboardStats.HistoryCount"
+                                    TotalVotes="@_dashboardStats.TotalVotes"
+                                    TotalSessions="@_dashboardStats.TotalSessions"
+                                    OnToggleCollapse="@HandleSidebarToggle"
+                                    OnNavigate="@HandleNavigation"
+                                    OnCreatePlaylist="@HandleCreatePlaylist"
+                                    OnStartLiveSession="@HandleStartLiveSession"/>
+
+                <main class="main-content @(_sidebarCollapsed ? "sidebar-collapsed" : "")">
+                    <div class="content-wrapper">
+                        @Body
+                    </div>
+                </main>
+            </div>
+
+            @if (_showMobileOverlay)
+            {
+                <div class="mobile-overlay" @onclick="HideMobileSidebar"></div>
+            }
+        </div>
+    </AuthRequiredComponent>
+}
+
+@code {
+    private bool _sidebarCollapsed;
+    private bool _showMobileOverlay;
+    private bool _isInitialized;
+    private PrivateUser _privateUser;
+
+    private UserModel _currentUser = new()
+    {
+        DisplayName = "DJ Alex",
+        ProfileImage = "", // Will show initials if empty
+        Status = "Online"
+    };
+
+    private DashboardStatsModel _dashboardStats = new()
+    {
+        PlaylistCount = 15,
+        HistoryCount = 42,
+        TotalVotes = 1847,
+        TotalSessions = 2
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        bool hasValidToken = await SpotifyService.GetHasValidToken();
+        if (!hasValidToken)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+    
+
+        _currentUser = new UserModel();
+        var t = await SpotifyService.GetUser();
+        _privateUser = t;
+        _currentUser.DisplayName = _privateUser.DisplayName;
+        if (_privateUser.Images.Count > 0)
+        {
+            _currentUser.ProfileImage = _privateUser.Images[0].Url;
+        }
+
+        _isInitialized = true;
+
+
+        //return base.OnInitializedAsync();
+
+        // TODO: Load user data and dashboard stats from your service
+        // currentUser = await UserService.GetCurrentUserAsync();
+        // dashboardStats = await DashboardService.GetStatsAsync();
+    }
+
+    private string GetActivePage()
+    {
+        var currentUri = NavigationManager.Uri;
+        return currentUri;
+
+        // if (currentUri.Contains("/dj/history"))
+        //     return "history";
+        // else if (currentUri.Contains("/dj/playlists") || currentUri.Contains("/dj"))
+        //     return "playlists";
+
+        // return "/";
+    }
+
+    private async Task HandleSidebarToggle(bool collapsed)
+    {
+        _sidebarCollapsed = collapsed;
+        StateHasChanged();
+    }
+
+    private async Task HandleNavigation(string page)
+    {
+        // Navigate to the appropriate page
+        switch (page)
+        {
+            case "/dj/startsession":
+                NavigationManager.NavigateTo("/dj/startsession");
+                break;
+            case "/dj/history":
+                NavigationManager.NavigateTo("/dj/history");
+                break;
+            default: 
+                NavigationManager.NavigateTo("/home");
+                break;
+
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HandleProfileView()
+    {
+        // NavigationManager.NavigateTo("/dj/profile");
+    }
+
+    private async Task HandleAccountSettings()
+    {
+        // NavigationManager.NavigateTo("/dj/settings");
+    }
+
+    private async Task HandleSpotifyConnect()
+    {
+        // Handle Spotify connection/reconnection
+        // SpotifyService.ReconnectAsync();
+    }
+
+    private async Task HandleCreatePlaylist()
+    {
+        NavigationManager.NavigateTo("/dj/session/create");
+    }
+
+    private async Task HandleStartLiveSession()
+    {
+        NavigationManager.NavigateTo("/dj/live/start");
+    }
+
+    private void HideMobileSidebar()
+    {
+        _showMobileOverlay = false;
+    }
+
+    public class UserModel
+    {
+        public string DisplayName { get; set; } = "";
+        public string ProfileImage { get; set; } = "";
+        public string Status { get; set; } = "Online";
+    }
+
+    public class DashboardStatsModel
+    {
+        public int PlaylistCount { get; set; }
+        public int HistoryCount { get; set; }
+        public int TotalVotes { get; set; }
+        public int TotalSessions { get; set; }
+    }
+}

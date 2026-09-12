@@ -1,0 +1,716 @@
+﻿@page "/"
+@using BeatBallot.Web
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@namespace BeatBallot.Web.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+    <base href="~/" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="BeatBallot.Web.styles.css" rel="stylesheet" />
+    <script src="https://js.stripe.com/v3/"></script>
+    <component type="typeof(HeadOutlet)" render-mode="Server" />
+    
+    <!-- Loading background styles -->
+    <style>
+        html, body {
+            background: #1A2042;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .app-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1A2042;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top: 4px solid #e74c3c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .loading-text {
+            font-size: 1.2em;
+            font-weight: 600;
+            background: #1A2042;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .blazor-ready {
+            background: #1A2042;
+        }
+
+        .blazor-ready .app-loading {
+            display: none;
+            background: #1A2042;
+        }
+
+        #blazor-error-ui:not(.custom-reconnect-ui) {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading screen shown while Blazor initializes -->
+    <div class="app-loading" id="app-loading">
+        <div class="loading-content">
+            <div class="loading-text">BeatBallot</div>
+            <p style="color: #1A2042; margin-top: 10px;">Loading your music experience...</p>
+        </div>
+    </div>
+
+    <!-- Your Blazor app -->
+    <component type="typeof(App)" render-mode="Server" />
+
+    <!-- Your custom reconnection UI -->
+    <div id="blazor-error-ui" class="custom-reconnect-ui">
+        <div class="reconnect-overlay">
+            <div class="reconnect-modal">
+                <div class="reconnect-icon">
+                    <svg class="spinner" viewBox="0 0 50 50" width="50" height="50">
+                        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke="#3498db" stroke-width="3" stroke-linecap="round" stroke-dasharray="90, 150" stroke-dashoffset="0">
+                            <animateTransform attributeName="transform" attributeType="XML" type="rotate" dur="2s" repeatCount="indefinite" values="0 25 25;360 25 25" />
+                        </circle>
+                    </svg>
+                </div>
+                <h3 class="reconnect-title">Connection Lost</h3>
+                <p class="reconnect-message">Attempting to reconnect to BeatBallot...</p>
+                <div class="reconnect-actions">
+                    <button class="reconnect-btn" onclick="location.reload()">Refresh Page</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="_framework/blazor.server.js"></script>
+
+<!-- Hide loading screen when Blazor is ready -->
+<script>
+    window.addEventListener('DOMContentLoaded', function() {
+        // Hide loading screen when Blazor is ready
+        if (window.Blazor) {
+            document.body.classList.add('blazor-ready');
+        } else {
+            // Wait for Blazor to load
+            const checkBlazor = setInterval(() => {
+                if (window.Blazor) {
+                    document.body.classList.add('blazor-ready');
+                    clearInterval(checkBlazor);
+                }
+            }, 100);
+        }
+    });
+
+    // Alternative: Hide loading after a delay as fallback
+    setTimeout(() => {
+        document.body.classList.add('blazor-ready');
+    }, 5000); // 5 second fallback
+</script>
+
+<script>
+        window.clipboardCopy = {
+            copyText: function (text) {
+                navigator.clipboard.writeText(text).then(function () {
+                    console.log("Copied to clipboard!");
+                }).catch(function (error) {
+                    console.error("Could not copy text: ", error);
+                });
+            }
+        };
+ </script>
+
+
+<script>
+        // wwwroot/js/deviceInfo.js
+        // Client-side device information collection for BeatBallot
+
+        window.getClientDeviceInfo = () => {
+            try {
+                return {
+                    screenResolution: `${screen.width}x${screen.height}`,
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                };
+            } catch (error) {
+                console.warn('Could not collect device info:', error);
+                return {
+                    screenResolution: 'unknown',
+                    timeZone: 'unknown'
+                };
+            }
+        };
+
+        window.generateClientFingerprint = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('BeatBallot', 2, 2);
+
+                return {
+                    canvas: canvas.toDataURL(),
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    cookieEnabled: navigator.cookieEnabled,
+                    touchSupport: 'ontouchstart' in window,
+                    screenResolution: `${screen.width}x${screen.height}`,
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    colorDepth: screen.colorDepth,
+                    pixelRatio: window.devicePixelRatio || 1
+                };
+            } catch (error) {
+                console.warn('Could not generate fingerprint:', error);
+                return {
+                    userAgent: navigator.userAgent || 'unknown',
+                    language: navigator.language || 'unknown',
+                    platform: navigator.platform || 'unknown',
+                    cookieEnabled: navigator.cookieEnabled || false,
+                    touchSupport: 'ontouchstart' in window
+                };
+            }
+        };
+
+        // Helper function to check if device is mobile
+        window.isMobileDevice = () => {
+            const userAgent = navigator.userAgent || '';
+            const mobileKeywords = ['Mobile', 'Android', 'iPhone', 'iPad', 'Windows Phone', 'BlackBerry'];
+            return mobileKeywords.some(keyword => userAgent.includes(keyword));
+        };
+
+        // Function to get network information (if available)
+        window.getNetworkInfo = () => {
+            try {
+                if ('connection' in navigator) {
+                    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                    return {
+                        effectiveType: connection.effectiveType,
+                        downlink: connection.downlink,
+                        rtt: connection.rtt
+                    };
+                }
+                return null;
+            } catch (error) {
+                return null;
+            }
+        };
+
+        // Enhanced device info with additional details
+        window.getExtendedDeviceInfo = () => {
+            try {
+                const basicInfo = window.getClientDeviceInfo();
+                const fingerprint = window.generateClientFingerprint();
+                const networkInfo = window.getNetworkInfo();
+
+                return {
+                    ...basicInfo,
+                    isMobile: window.isMobileDevice(),
+                    network: networkInfo,
+                    viewport: {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    },
+                    orientation: screen.orientation ? screen.orientation.type : 'unknown',
+                    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+                    maxTouchPoints: navigator.maxTouchPoints || 0,
+                    fingerprint: fingerprint
+                };
+            } catch (error) {
+                console.warn('Could not collect extended device info:', error);
+                return window.getClientDeviceInfo();
+            }
+        };
+</script>
+
+
+<script>
+        window.blazorCookies = {
+            set: function (name, value, hours) {
+                try {
+                    const expires = new Date();
+                    expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
+
+                    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure=${location.protocol === 'https:'}`;
+                    return true;
+                } catch (error) {
+                    console.error('Error setting cookie:', error);
+                    return false;
+                }
+            },
+
+            get: function (name) {
+                try {
+                    const nameEQ = name + "=";
+                    const cookies = document.cookie.split(';');
+
+                    for (let i = 0; i < cookies.length; i++) {
+                        let cookie = cookies[i];
+                        while (cookie.charAt(0) === ' ') {
+                            cookie = cookie.substring(1, cookie.length);
+                        }
+                        if (cookie.indexOf(nameEQ) === 0) {
+                            return decodeURIComponent(cookie.substring(nameEQ.length, cookie.length));
+                        }
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('Error getting cookie:', error);
+                    return null;
+                }
+            },
+
+            remove: function (name) {
+                try {
+                    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+                    return true;
+                } catch (error) {
+                    console.error('Error removing cookie:', error);
+                    return false;
+                }
+            }
+        };
+    </script>
+
+        <script>
+        // Updated wwwroot/js/stripe-integration.js
+          let stripeInstances = new Map(); // Track multiple Stripe instances
+
+          window.checkElementExists = (elementId) => {
+              const element = document.getElementById(elementId);
+              return element !== null;
+          };
+
+          window.waitForElement = async (elementId, maxAttempts = 10, delay = 100) => {
+              for (let i = 0; i < maxAttempts; i++) {
+                  if (document.getElementById(elementId)) {
+                      return true;
+                  }
+                  await new Promise(resolve => setTimeout(resolve, delay));
+              }
+              return false;
+          };
+
+          window.initializeStripeWithId = async (publishableKey, elementId, errorsId) => {
+
+              //return true;
+              try {
+                  console.log(`Initializing Stripe for element: ${elementId}`);
+
+                  if (typeof Stripe === 'undefined') {
+                      console.error('Stripe.js library not loaded');
+                      return false;
+                  }
+
+                  // Wait for the element to exist
+                  const elementExists = await window.waitForElement(elementId, 20, 50);
+                  if (!elementExists) {
+                      console.error(`${elementId} not found after waiting`);
+                      return false;
+                  }
+
+                  const stripe = Stripe(publishableKey);
+                  const elements = stripe.elements();
+
+                  const cardElement = elements.create('card', {
+                      style: {
+                          base: {
+                              fontSize: '16px',
+                              color: '#424770',
+                              '::placeholder': {
+                                  color: '#aab7c4',
+                              },
+                          },
+                      },
+                  });
+
+                  // Mount the element
+                  cardElement.mount(`#${elementId}`);
+
+                  // Store the instance for cleanup
+                  stripeInstances.set(elementId, {
+                      stripe: stripe,
+                      elements: elements,
+                      cardElement: cardElement
+                  });
+
+                  // Listen for validation errors
+                  cardElement.on('change', ({error}) => {
+                      const displayError = document.getElementById(errorsId);
+                      if (displayError) {
+                          if (error) {
+                              displayError.textContent = error.message;
+                          } else {
+                              displayError.textContent = '';
+                          }
+                      }
+                  });
+
+                  console.log(`Stripe initialized successfully for ${elementId}`);
+                  return true;
+
+              } catch (error) {
+                  console.error('Error initializing Stripe:', error);
+                  return false;
+              }
+          };
+
+          window.cleanupStripe = (elementId) => {
+              try {
+                  const instance = stripeInstances.get(elementId);
+                  if (instance && instance.cardElement) {
+                      console.log(`Cleaning up Stripe for element: ${elementId}`);
+
+                      // Check if element still exists before unmounting
+                      const element = document.getElementById(elementId);
+                      if (element) {
+                          instance.cardElement.unmount();
+                      }
+
+                      // Remove from tracking
+                      stripeInstances.delete(elementId);
+                  }
+              } catch (error) {
+                  console.error('Error cleaning up Stripe:', error);
+              }
+          };
+
+          window.processStripePayment = async (clientSecret, email, elementId) => {
+              try {
+                  const instance = stripeInstances.get(elementId);
+                  if (!instance || !instance.stripe || !instance.cardElement) {
+                      console.error('Stripe not properly initialized for element:', elementId);
+                      return false;
+                  }
+
+                  const { error, paymentIntent } = await instance.stripe.confirmCardPayment(clientSecret, {
+                      payment_method: {
+                          card: instance.cardElement,
+                          billing_details: {
+                              email: email
+                          }
+                      }
+                  });
+
+                  if (error) {
+                      console.error('Payment failed:', error);
+                      return false;
+                  } else if (paymentIntent.status === 'succeeded') {
+                      console.log('Payment succeeded!');
+                      return true;
+                  }
+
+                  return false;
+              } catch (error) {
+                  console.error('Error processing payment:', error);
+                  return false;
+              }
+          };
+
+          // Cleanup on page unload
+          window.addEventListener('beforeunload', () => {
+              stripeInstances.forEach((instance, elementId) => {
+                  window.cleanupStripe(elementId);
+              });
+          });
+        </script>
+
+</body>
+<style>
+
+    /* Fixed CSS for the reconnection UI */
+    .custom-reconnect-ui {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: #1A2042;
+        backdrop-filter: blur(10px);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .reconnect-overlay {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    .reconnect-modal {
+        background: #1A2042;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        padding: 40px;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        max-width: 400px;
+        width: 90%;
+        color: white;
+    }
+
+    .reconnect-icon {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50px; /* Fixed height for the icon container */
+    }
+
+    .spinner {
+        width: 50px !important;
+        height: 50px !important;
+        max-width: 50px;
+        max-height: 50px;
+    }
+
+    .path {
+        stroke-linecap: round;
+    }
+
+    .reconnect-title {
+        color: #e74c3c;
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 0 0 15px 0;
+    }
+
+    .reconnect-message {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1em;
+        margin: 0 0 25px 0;
+        line-height: 1.5;
+    }
+
+    .reconnect-actions {
+        display: none; /* Hidden until max retries reached */
+    }
+
+    .reconnect-btn {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        border: none;
+        border-radius: 12px;
+        padding: 12px 24px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1em;
+    }
+
+        .reconnect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+        }
+
+    /* Pulse animation for the modal */
+    .reconnect-modal {
+        animation: reconnectPulse 2s ease-in-out infinite;
+    }
+
+    
+
+
+    /* Hide default Blazor error UI */
+    #blazor-error-ui:not(.custom-reconnect-ui) {
+        display: none !important;
+    }
+</style>
+<script>
+    window.blazorReconnection = {
+        maxRetries: 8,
+        retryInterval: 2000,
+        currentRetries: 0,
+        isReconnecting: false,
+
+        initialize() {
+            console.log('Initializing custom Blazor reconnection...');
+
+            // Wait for Blazor to be available
+            if (window.Blazor && window.Blazor._internal) {
+                this.setupConnectionHandlers();
+            } else {
+                // Wait for Blazor to load
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(() => this.initialize(), 100);
+                });
+            }
+        },
+
+        setupConnectionHandlers() {
+            try {
+                const connection = window.Blazor._internal.navigationManager._connection;
+
+                if (connection) {
+                    // Handle disconnection
+                    connection.onclose((error) => {
+                        console.log('Blazor connection closed:', error);
+                        this.showReconnectUI();
+                        this.startReconnection();
+                    });
+
+                    // Handle reconnecting state
+                    connection.onreconnecting((error) => {
+                        console.log('Blazor reconnecting...', error);
+                        this.showReconnectUI();
+                        this.isReconnecting = true;
+                    });
+
+                    // Handle successful reconnection
+                    connection.onreconnected((connectionId) => {
+                        console.log('Blazor reconnected:', connectionId);
+                        this.hideReconnectUI();
+                        this.resetReconnection();
+                    });
+
+                    console.log('Connection handlers set up successfully');
+                }
+            } catch (error) {
+                console.error('Error setting up connection handlers:', error);
+            }
+        },
+
+        showReconnectUI() {
+            const errorUI = document.getElementById('blazor-error-ui');
+            if (errorUI) {
+                errorUI.style.display = 'flex';
+            }
+        },
+
+        hideReconnectUI() {
+            const errorUI = document.getElementById('blazor-error-ui');
+            if (errorUI) {
+                errorUI.style.display = 'none';
+            }
+        },
+
+        async startReconnection() {
+            if (this.isReconnecting) return;
+
+            this.isReconnecting = true;
+            this.currentRetries = 0;
+
+            while (this.currentRetries < this.maxRetries && this.isReconnecting) {
+                this.currentRetries++;
+
+                this.updateReconnectMessage(`Attempt ${this.currentRetries} of ${this.maxRetries}...`);
+
+                try {
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, this.retryInterval));
+
+                    // Check if we're back online
+                    if (!navigator.onLine) {
+                        this.updateReconnectMessage('No internet connection. Waiting...');
+                        continue;
+                    }
+
+                    // Try to make a simple fetch request to test connectivity
+                    const response = await fetch(window.location.origin + '/health', {
+                        method: 'HEAD',
+                        cache: 'no-cache'
+                    });
+
+                    if (response.ok) {
+                        // Connection seems to be back, reload the page
+                        this.updateReconnectMessage('Connection restored. Reloading...');
+                        setTimeout(() => location.reload(), 1000);
+                        return;
+                    }
+
+                } catch (error) {
+                    console.log(`Reconnection attempt ${this.currentRetries} failed:`, error);
+                }
+            }
+
+            // Max retries reached
+            this.showFailedReconnect();
+        },
+
+        resetReconnection() {
+            this.isReconnecting = false;
+            this.currentRetries = 0;
+            this.updateReconnectMessage('Attempting to reconnect to BeatBallot...');
+
+            // Hide the actions button
+            const actionsEl = document.querySelector('.reconnect-actions');
+            if (actionsEl) actionsEl.style.display = 'none';
+        },
+
+        updateReconnectMessage(message) {
+            const messageEl = document.querySelector('.reconnect-message');
+            if (messageEl) {
+                messageEl.textContent = message;
+            }
+        },
+
+        showFailedReconnect() {
+            const titleEl = document.querySelector('.reconnect-title');
+            const messageEl = document.querySelector('.reconnect-message');
+            const actionsEl = document.querySelector('.reconnect-actions');
+
+            if (titleEl) titleEl.textContent = 'Connection Failed';
+            if (messageEl) messageEl.textContent = 'Unable to reconnect. Please refresh the page.';
+            if (actionsEl) actionsEl.style.display = 'block';
+
+            this.isReconnecting = false;
+        }
+    };
+
+    // Initialize when the page loads
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.blazorReconnection.initialize();
+        });
+    } else {
+        window.blazorReconnection.initialize();
+    }
+
+    // Also handle online/offline events
+    window.addEventListener('online', () => {
+        if (window.blazorReconnection.isReconnecting) {
+            console.log('Back online, attempting reconnection...');
+            window.blazorReconnection.updateReconnectMessage('Back online. Reconnecting...');
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        console.log('Gone offline');
+        if (window.blazorReconnection.isReconnecting) {
+            window.blazorReconnection.updateReconnectMessage('No internet connection. Waiting...');
+        }
+    });
+</script>
+</html>

@@ -1,0 +1,25 @@
+﻿@* LiveStatsComponent.razor *@
+
+<div class="stats">
+    <div class="stats-title">Live Stats</div>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number">@TotalVotes</div>
+            <div class="stat-label">Total Votes</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">@ActiveVoters</div>
+            <div class="stat-label">Active Voters</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">@SongsPlayed</div>
+            <div class="stat-label">Songs Played</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TotalVotes { get; set; } = 87;
+    [Parameter] public int ActiveVoters { get; set; } = 24;
+    [Parameter] public int SongsPlayed { get; set; } = 156;
+}

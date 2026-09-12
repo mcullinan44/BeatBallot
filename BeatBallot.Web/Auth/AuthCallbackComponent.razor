@@ -1,0 +1,136 @@
+﻿@* Pages/AuthCallback.razor *@
+@page "/authcallback"
+@using BeatBallot.Web.Services.Local
+@using SpotifyAPI.Web
+
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject ITokenProvider TokenProvider 
+
+
+
+<div class="callback-container">
+    @if (_isProcessing)
+    {
+        <div class="processing-auth">
+            <div class="loading-spinner"></div>
+            <h2>Completing Spotify Authentication...</h2>
+            <p>Please wait while we set up your account.</p>
+        </div>
+    }
+    else if (_hasError)
+    {
+        <div class="auth-error">
+            <div class="error-icon">❌</div>
+            <h2>Authentication Failed</h2>
+            <p>@_errorMessage</p>
+            <button class="retry-btn" @onclick="RetryAuth">Try Again</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "code")]
+    public string? Code { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "state")]
+    public string? State { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    private bool _isProcessing = true;
+    private bool _hasError;
+    private string _errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ProcessCallback();
+    }
+
+    private async Task ProcessCallback()
+    {
+        try
+        {
+            // Check for error parameter first
+            if (!string.IsNullOrEmpty(Error))
+            {
+                ShowError($"Spotify authentication failed: {Error}");
+                return;
+            }
+
+            // Validate required parameters
+            if (string.IsNullOrEmpty(Code) || string.IsNullOrEmpty(State))
+            {
+                ShowError("Invalid callback parameters received from Spotify.");
+                return;
+            }
+
+            // TODO: Validate state parameter for security
+            // var storedState = await SpotifyAuth.GetStoredStateAsync();
+            // if (State != storedState)
+            // {
+            //     ShowError("Invalid state parameter. Possible security issue.");
+            //     return;
+            // }
+
+            // Exchange code for access token
+            await ExchangeCodeForToken();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"An error occurred during authentication: {ex.Message}");
+        }
+    }
+
+    private async Task ExchangeCodeForToken()
+    {
+        try
+        {
+            var config = SpotifyClientConfig.CreateDefault();
+            var request = new AuthorizationCodeTokenRequest(
+                Configuration["Spotify:ClientId"] ?? string.Empty,
+                Configuration["Spotify:ClientSecret"] ?? string.Empty,
+                Code!,
+                new Uri(NavigationManager.BaseUri.TrimEnd('/') + "/authcallback")
+            );
+
+
+            var response = await new OAuthClient(config).RequestToken(request);
+
+            await TokenProvider.StoreTokensAsync(response.AccessToken, response.RefreshToken, response.ExpiresIn);
+
+            // Redirect to DJ dashboard
+            NavigationManager.NavigateTo("/", forceLoad: true);
+
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("invalid_grant"))
+            {
+                ShowError("The authorization code has expired. Please try logging in again.");
+            }
+            else
+            {
+                ShowError($"Failed to exchange authorization code: {ex.Message}");
+            }
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        _errorMessage = message;
+        _hasError = true;
+        _isProcessing = false;
+        StateHasChanged();
+    }
+
+    private void RetryAuth()
+    {
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+}

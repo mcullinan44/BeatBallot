@@ -1,0 +1,370 @@
+﻿
+@page "/dj/startsession/{PlaylistId}/{SessionId}"
+@page "/dj/startsession"
+@using BeatBallot.Web.Home.DeeJay
+@using BeatBallot.Web.LiveSession.VotingExperience
+@using BeatBallot.Web.Services.Local
+@using BeatBallot.Web.Services.Spotify
+@using SpotifyAPI.Web
+@layout DJLayoutComponent
+@inject NavigationManager Navigation
+@inject ITokenProvider TokenProvider
+@inject SpotifyService SpotifyService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject IPlaylistVoteCacheService PlaylistVoteCacheService
+
+@if (_isInitialized) {
+    <div class="playlists-page">
+        <!-- Take Requests Section -->
+        <div class="page-section">
+            <div class="section-header">
+                <div class="header-content">
+                    <h1 class="section-title">Take Requests</h1>
+                    <p class="section-subtitle">Accept song requests from your audience</p>
+                </div>
+            </div>
+
+            <div class="requests-content">
+                <div class="playlist-card @(_takingRequests ? "live" : "")">
+                    @if (_takingRequests)
+                    {
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span>LIVE</span>
+                        </div>
+                    }
+
+                    <div class="playlist-actions">
+                        @if (_takingRequests)
+                        {
+                            <button class="action-btn manage-btn" @onclick="() => ManageSessionTakeRequests()">
+                                <span class="btn-icon">⚙️</span>
+                                <span>Manage Live</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="action-btn go-live-btn" @onclick="() => HandleGoLiveTakeRequests()">
+                                <span class="btn-icon">🎧</span>
+                                <span>Go Live</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Playlists Section -->
+        <div class="page-section">
+            <div class="section-header">
+                <div class="header-content">
+                    <h1 class="section-title">Create a Voting Experience</h1>
+                    <p class="section-subtitle">Get your audience involved with a curated list of material.</p>
+                </div>
+            </div>
+
+            <div class="playlists-grid">
+                @foreach (var playlist in _playlists)
+                {
+                    <div class="playlist-card @(playlist.IsLive ? "live" : "")">
+                        @if (playlist.IsLive)
+                        {
+                            <div class="live-indicator">
+                                <span class="live-dot"></span>
+                                <span>LIVE</span>
+                            </div>
+                        }
+
+                        <div class="playlist-cover">
+                            @if (!string.IsNullOrEmpty(playlist.CoverImage))
+                            {
+                                <img src="@playlist.CoverImage" alt="@playlist.Name" class="cover-image"/>
+                            }
+                            else
+                            {
+                                <div class="cover-placeholder">
+                                    <span class="cover-icon">🎵</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="playlist-info">
+                            <h3 class="playlist-name">@playlist.Name</h3>
+                            <p class="playlist-description">@playlist.Description</p>
+
+                            <div class="playlist-actions">
+                                @if (playlist.IsLive)
+                                {
+                                    <button class="action-btn manage-btn" @onclick="() => ManageSession(playlist.SpotifyId)">
+                                        <span class="btn-icon">⚙️</span>
+                                        <span>Manage Live</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="action-btn go-live-btn" @onclick="() => HandleGoLive(playlist.SpotifyId)">
+                                        <span class="btn-icon">🎧</span>
+                                        <span>Go Live</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (!_playlists.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🎵</div>
+                    <h2>No playlists found</h2>
+                    <p>Connect to Spotify and refresh to sync your playlists, or create playlists in your Spotify app.</p>
+                    <button class="refresh-btn" @onclick="RefreshFromSpotify">
+                        <span class="btn-icon">🔄</span>
+                        <span>Refresh from Spotify</span>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Confirmation Modal for Switching Live Playlists -->
+        @if (_showSwitchConfirmation)
+        {
+            <div class="modal-overlay" @onclick="CancelSwitch">
+                <div class="confirmation-modal" @onclick:stopPropagation="true">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Switch Live Playlist?</h3>
+                        <button class="close-modal-btn" @onclick="CancelSwitch">×</button>
+                    </div>
+
+                    <div class="modal-content">
+                        <div class="warning-icon">⚠️</div>
+                        <p class="warning-message">
+                            Switching live playlists will invalidate ballot results. You will have to start over.
+                        </p>
+                        <p class="current-live">
+                            Currently live: <strong>@GetCurrentLivePlaylistName()</strong>
+                        </p>
+                        <p class="switching-to">
+                            Switching to: <strong>@GetPlaylistName(_pendingSwitchPlaylistId)</strong>
+                        </p>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="cancel-btn" @onclick="CancelSwitch">
+                            <span>Cancel</span>
+                        </button>
+                        <button class="confirm-btn" @onclick="ConfirmSwitch">
+                            <span>Confirm Switch</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+ } 
+
+
+@code {
+    private bool _isRefreshing;
+    private bool _showSwitchConfirmation;
+    private string _pendingSwitchPlaylistId = "";
+    private DateTime _lastRefresh = DateTime.Now.AddMinutes(-30);
+    private bool _isInitialized;
+
+    private bool _takingRequests;
+
+    [Parameter] public string PlaylistId { get; set; } = "";
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private List<PlaylistModel> _playlists = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        string token = await TokenProvider.GetAccessTokenAsync();
+
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/login");
+        }
+
+        
+        await RefreshFromSpotify();
+        await SetLiveAsync();
+        _isInitialized = true;
+    }
+
+    private async Task SetLiveAsync()
+    {
+        foreach (var playlist in _playlists)
+        {
+            if (playlist.SpotifyId == PlaylistId)
+            {
+                playlist.IsLive = true;
+            }
+        }
+    }
+
+    private async Task RefreshFromSpotify()
+    {
+        if (_isRefreshing) return;
+
+        _isRefreshing = true;
+        StateHasChanged();
+        _playlists.Clear();
+        try
+        {
+            Paging<FullPlaylist> spotifyPlaylists = await SpotifyService.GetPlaylistsAsync();
+            foreach (var playlist in spotifyPlaylists.Items)
+            {
+                PlaylistModel playlistmodel = new PlaylistModel();
+                playlistmodel.Description = playlist.Description;
+                playlistmodel.SpotifyId = playlist.Id;
+                playlistmodel.Name = playlist.Name;
+                if (playlist.Images is { Count: > 0 })
+                {
+                    playlistmodel.CoverImage = playlist.Images[0].Url;
+                }
+                
+                playlistmodel.TrackCount = playlist.Tracks.Items != null ? playlist.Tracks.Items.Count : 0;
+                _playlists.Add(playlistmodel);
+            }
+
+            _lastRefresh = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing playlists: {ex.Message}");
+        }
+        finally
+        {
+            _isRefreshing = false;
+            StateHasChanged();
+        }
+
+        await SetLiveAsync();
+    }
+
+    private async Task HandleGoLiveTakeRequests()
+    {
+        _takingRequests = true;
+    }
+
+    private async Task ManageSessionTakeRequests()
+    {
+        string sessionId = "";
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            sessionId = GenerateSessionId();
+        }
+        else
+        {
+            sessionId = SessionId;
+        }
+        Navigation.NavigateTo($"/dj/session/{sessionId}/manage");
+    }
+
+    private async Task HandleGoLive(string playlistId)
+    {
+        var currentLivePlaylist = _playlists.FirstOrDefault(p => p.IsLive);
+
+        if (currentLivePlaylist != null && currentLivePlaylist.SpotifyId != playlistId)
+        {
+            _pendingSwitchPlaylistId = playlistId;
+            _showSwitchConfirmation = true;
+            StateHasChanged();
+        }
+        else
+        {
+            await GoLive(playlistId);
+        }
+    }
+
+    private async Task ManageSession(string playlistId)
+    {
+        string sessionId = "";
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            sessionId = GenerateSessionId();
+        }
+        else
+        {
+            sessionId = SessionId;
+        }
+        Navigation.NavigateTo($"/dj/session/{playlistId}/{sessionId}/manage");
+    }
+
+    private async Task ConfirmSwitch()
+    {
+        _showSwitchConfirmation = false;
+
+        var currentLive = _playlists.FirstOrDefault(p => p.IsLive);
+        if (currentLive != null)
+        {
+            currentLive.IsLive = false;
+            currentLive.ListenerCount = 0;
+        }
+
+        await GoLive(_pendingSwitchPlaylistId);
+
+        _pendingSwitchPlaylistId = "";
+        StateHasChanged();
+    }
+
+    private void CancelSwitch()
+    {
+        _showSwitchConfirmation = false;
+        _pendingSwitchPlaylistId = "";
+        StateHasChanged();
+    }
+
+    private string GetCurrentLivePlaylistName()
+    {
+        return _playlists.FirstOrDefault(p => p.IsLive)?.Name ?? "";
+    }
+
+    private string GetPlaylistName(string playlistId)
+    {
+        return _playlists.FirstOrDefault(p => p.SpotifyId == playlistId)?.Name ?? "";
+    }
+
+    private string GenerateSessionId()
+    {
+        const string CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(CHARS, 32)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    private async Task GoLive(string playlistId)
+    {
+        var playlist = _playlists.FirstOrDefault(p => p.SpotifyId == playlistId);
+        if (playlist != null)
+        {
+            foreach (var p in _playlists)
+            {
+                p.IsLive = false;
+                p.ListenerCount = 0;
+            }
+
+            playlist.IsLive = true;
+            playlist.ListenerCount = 1;
+
+            StateHasChanged();
+        }
+    }
+
+    public class PlaylistModel
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int TrackCount { get; set; }
+        public int TotalVotes { get; set; }
+        public int ListenerCount { get; set; }
+        public bool IsLive { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public string CoverImage { get; set; } = "";
+        public string SpotifyId { get; set; } = "";
+    }
+}

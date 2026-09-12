@@ -1,0 +1,125 @@
+﻿@* QRDisplayComponent.razor *@
+@page "/qr/{PlaylistId}/{SessionId}"
+@layout MainLayout
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+@using QRCoder
+
+@if (!_showVotingStoppedMessage)
+{
+    <div class="qr-display-page">
+        <div class="qr-container">
+            <div class="header-section">
+                <div class="logo">Cast your vote</div>
+                <div class="subtitle">For what to hear next</div>
+            </div>
+
+            <div class="qr-section">
+                <div class="qr-code-display">
+                    <img src="@_qrCodeImage" alt=""/>
+                </div>
+
+                <div class="voting-url-display">
+                    <div class="url-text">@GetVotingUrl()</div>
+                </div>
+            </div>
+
+            <div class="instructions-section">
+                <div class="instruction-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Open your phone's camera</div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Point at the QR code above</div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Tap the notification to start voting</div>
+                </div>
+            </div>
+
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span class="live-text">LIVE VOTING</span>
+            </div>
+
+            <div class="session-info">
+                <div class="session-label">Session ID</div>
+                <div class="session-code">@SessionId.Substring(0, 12)...</div>
+            </div>
+        </div>
+    </div>
+
+}
+else
+{
+    <VotingStoppedNotificationComponent IsVisible="@_showVotingStoppedMessage" ShowAcknowledgeButton="false"/>
+}
+
+
+
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    [Parameter] public string PlaylistId { get; set; } = "";
+
+    private string _qrCodeImage;
+
+    
+
+    private HubConnection? _hubConnection;
+
+    private bool _showVotingStoppedMessage;
+    private bool _isVotingStopped;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        // Validate session ID
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        using QRCodeGenerator qrGenerator = new QRCodeGenerator();
+        QRCodeData qrCodeData = qrGenerator.CreateQrCode(GetVotingUrl(), QRCodeGenerator.ECCLevel.Q);
+        Base64QRCode qrCode = new Base64QRCode(qrCodeData);
+        _qrCodeImage = $"data:image/png;base64,{qrCode.GetGraphic(10)}";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/votingHub"))
+            .Build();
+        
+        await _hubConnection.StartAsync();
+        await _hubConnection.SendAsync("JoinPlaylistGroup", PlaylistId, SessionId);
+        
+        // Listen for session-specific updates
+        _hubConnection.On("NotifyVotingStopped", NotifyVotingStoppedHandler);
+
+    }
+
+    private async Task NotifyVotingStoppedHandler()
+    {
+        await HandleVotingStopped();
+    }
+
+    private async Task HandleVotingStopped()
+    {
+        await InvokeAsync(() =>
+        {
+            _isVotingStopped = true;
+            _showVotingStoppedMessage = true;
+            StateHasChanged();
+        });
+    }
+
+
+    private string GetVotingUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/vote/{PlaylistId}/{SessionId}";
+    }
+}

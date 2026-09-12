@@ -1,0 +1,468 @@
+﻿@* Admin.razor *@
+@page "/admin"
+@using System.Text.Json
+@using BeatBallot.Web.Auth
+@using BeatBallot.Web.Services
+@inject IAdminAuthService AdminAuthService
+@inject ISessionActivityLogger SessionActivityLogger
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>BeatBallot - Admin Dashboard</PageTitle>
+
+@if (!_isAuthenticated)
+{
+    <div class="admin-login-page">
+        <div class="login-container">
+            <div class="login-header">
+                <h1 class="login-title">BeatBallot Admin</h1>
+                <p class="login-subtitle">Enter admin password to continue</p>
+            </div>
+
+            <div class="login-form">
+                <div class="form-group">
+                    <input type="password" @bind="_passwordInput" @onkeypress="HandleKeyPress"
+                           placeholder="Admin Password" class="password-input" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="error-message">
+                        <span class="error-icon">⚠️</span>
+                        <span>@_errorMessage</span>
+                    </div>
+                }
+
+                <button class="login-btn" @onclick="Login" disabled="@_isLoggingIn">
+                    @if (_isLoggingIn)
+                    {
+                        <span class="loading-spinner"></span>
+                        <span>Authenticating...</span>
+                    }
+                    else
+                    {
+                        <span>Login</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="admin-dashboard">
+        <div class="admin-header">
+            <div class="header-content">
+                <h1 class="page-title">BeatBallot Admin Dashboard</h1>
+                <p class="page-subtitle">Session Activity Monitor</p>
+            </div>
+            <div class="header-actions">
+                <button class="control-btn refresh-btn" @onclick="RefreshLogs" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span class="loading-spinner"></span>
+                    }
+                    else
+                    {
+                        <span class="btn-icon">🔄</span>
+                    }
+                    <span>Refresh</span>
+                </button>
+                <button class="control-btn clear-btn" @onclick="ShowClearConfirmation">
+                    <span class="btn-icon">🗑️</span>
+                    <span>Clear Old Logs</span>
+                </button>
+                <button class="logout-btn" @onclick="Logout">
+                    <span class="btn-icon">🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <div class="stat-number">@_logEntries.Count</div>
+                    <div class="stat-label">Total Log Entries</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎵</div>
+                <div class="stat-content">
+                    <div class="stat-number">@_activeSessions.Count</div>
+                    <div class="stat-label">Active Sessions</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-content">
+                    <div class="stat-number">@_errorCount</div>
+                    <div class="stat-label">Recent Errors</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🕐</div>
+                <div class="stat-content">
+                    <div class="stat-number">@GetLastActivityTime()</div>
+                    <div class="stat-label">Last Activity</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="logs-section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Activity</h2>
+                <div class="filter-controls">
+                    <select class="filter-dropdown" @bind="_selectedActivityType" @bind:after="FilterLogs">
+                        <option value="">All Activities</option>
+                        <option value="SessionCreated">Sessions Created</option>
+                        <option value="SessionEnded">Sessions Ended</option>
+                        <option value="SongRequested">Song Requests</option>
+                        <option value="SongPlayed">Songs Played</option>
+                        <option value="DeviceJoined">Devices Joined</option>
+                        <option value="ListenerLeft">Listeners Left</option>
+                        <option value="Error">Errors</option>
+                    </select>
+                    <input type="text" @bind="_searchTerm" @bind:after="FilterLogs"
+                           placeholder="Search logs..." class="search-input" />
+                </div>
+            </div>
+
+            <div class="logs-table-container">
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Session ID</th>
+                            <th>Activity</th>
+                            <th>User</th>
+                            <th>Message</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_filteredLogEntries.Any())
+                        {
+                            @foreach (var log in _filteredLogEntries.Take(50))
+                            {
+                                <tr class="log-row @GetLogRowClass(log.Level)">
+                                    <td class="timestamp-cell">
+                                        <span class="timestamp">@log.Timestamp.ToLocalTime().ToString("MM/dd HH:mm:ss")</span>
+                                    </td>
+                                    <td class="session-cell">
+                                        <span class="session-id">@log.SessionId.Substring(0, Math.Min(8, log.SessionId.Length))</span>
+                                    </td>
+                                    <td class="activity-cell">
+                                        <span class="activity-badge @GetActivityBadgeClass(log.ActivityType)">
+                                            @GetActivityIcon(log.ActivityType) @log.ActivityType
+                                        </span>
+                                    </td>
+                                    <td class="user-cell">
+                                        @if (!string.IsNullOrEmpty(log.UserName))
+                                        {
+                                            <span class="user-name">@log.UserName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="no-user">-</span>
+                                        }
+                                    </td>
+                                    <td class="message-cell">
+                                        <span class="message-text">@log.Message</span>
+                                        @if (!string.IsNullOrEmpty(log.SongName))
+                                        {
+                                            <div class="song-info">
+                                                <strong>@log.SongName</strong>
+                                                @if (!string.IsNullOrEmpty(log.Artist))
+                                                {
+                                                    <span> by @log.Artist</span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="level-cell">
+                                        <span class="level-indicator @GetLevelClass(log.Level)">
+                                            @log.Level.ToString()
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="no-logs">
+                                    <div class="empty-state">
+                                        <span class="empty-icon">📝</span>
+                                        <span>No log entries found</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (_showClearConfirmation)
+        {
+            <div class="modal-overlay" @onclick="CancelClear">
+                <div class="confirmation-modal" @onclick:stopPropagation="true">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Clear Old Logs?</h3>
+                        <button class="close-modal-btn" @onclick="CancelClear">×</button>
+                    </div>
+                    <div class="modal-content">
+                        <div class="warning-icon">🗑️</div>
+                        <p class="warning-message">
+                            This will clear all log entries older than 24 hours. This action cannot be undone.
+                        </p>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="cancel-btn" @onclick="CancelClear">Cancel</button>
+                        <button class="confirm-btn clear" @onclick="ClearOldLogs">Clear Logs</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool _isAuthenticated;
+    private bool _isLoggingIn;
+    private bool _isLoading;
+    private bool _showClearConfirmation;
+    private string _passwordInput = "";
+    private string _errorMessage = "";
+    private string _selectedActivityType = "";
+    private string _searchTerm = "";
+
+    private List<SessionActivityLogEntry> _logEntries = new();
+    private List<SessionActivityLogEntry> _filteredLogEntries = new();
+    private HashSet<string> _activeSessions = new();
+    private int _errorCount;
+
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AdminAuthService.IsAuthenticatedAsync();
+
+        if (_isAuthenticated)
+        {
+            await LoadLogsAsync();
+            StartAutoRefresh();
+        }
+    }
+
+    private async Task Login()
+    {
+        if (string.IsNullOrWhiteSpace(_passwordInput))
+        {
+            _errorMessage = "Please enter a password";
+            return;
+        }
+
+        _isLoggingIn = true;
+        _errorMessage = "";
+
+        try
+        {
+            var isValid = await AdminAuthService.ValidatePasswordAsync(_passwordInput);
+
+            if (isValid)
+            {
+                await AdminAuthService.LoginAsync();
+                _isAuthenticated = true;
+                await LoadLogsAsync();
+                StartAutoRefresh();
+            }
+            else
+            {
+                _errorMessage = "Invalid password";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Authentication error occurred";
+        }
+        finally
+        {
+            _isLoggingIn = false;
+            _passwordInput = "";
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AdminAuthService.LogoutAsync();
+        _isAuthenticated = false;
+        StopAutoRefresh();
+        Navigation.NavigateTo("/admin", forceLoad: true);
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_isLoggingIn)
+        {
+            await Login();
+        }
+    }
+
+    private async Task LoadLogsAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _logEntries = await SessionActivityLogger.GetRecentActivityAsync(200);
+            UpdateStatistics();
+            FilterLogs();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        await LoadLogsAsync();
+    }
+
+    private void FilterLogs()
+    {
+        _filteredLogEntries = _logEntries.AsEnumerable().ToList();
+
+        if (!string.IsNullOrEmpty(_selectedActivityType))
+        {
+            _filteredLogEntries = _filteredLogEntries.Where(log => log.ActivityType == _selectedActivityType).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(_searchTerm))
+        {
+            var searchLower = _searchTerm.ToLower();
+            _filteredLogEntries = _filteredLogEntries.Where(log =>
+                log.Message.ToLower().Contains(searchLower) ||
+                (log.UserName?.ToLower().Contains(searchLower) ?? false) ||
+                (log.SongName?.ToLower().Contains(searchLower) ?? false) ||
+                log.SessionId.ToLower().Contains(searchLower)).ToList();
+        }
+
+        _filteredLogEntries = _filteredLogEntries.OrderByDescending(log => log.Timestamp).ToList();
+        StateHasChanged();
+    }
+
+    private void UpdateStatistics()
+    {
+        var recent = _logEntries.Where(log => log.Timestamp > DateTime.UtcNow.AddHours(-1));
+        _activeSessions = recent.Select(log => log.SessionId).ToHashSet();
+        _errorCount = recent.Count(log => log.Level == LogLevel.Error);
+    }
+
+    private string GetLastActivityTime()
+    {
+        if (!_logEntries.Any()) return "None";
+
+        var lastActivity = _logEntries.Max(log => log.Timestamp);
+        var timeDiff = DateTime.UtcNow - lastActivity;
+
+        if (timeDiff.TotalMinutes < 1) return "Just now";
+        if (timeDiff.TotalMinutes < 60) return $"{timeDiff.Minutes}m ago";
+        if (timeDiff.TotalHours < 24) return $"{timeDiff.Hours}h ago";
+        return $"{timeDiff.Days}d ago";
+    }
+
+    private string GetLogRowClass(LogLevel level)
+    {
+        return level switch
+        {
+            LogLevel.Error => "error-row",
+            LogLevel.Warning => "warning-row",
+            _ => ""
+        };
+    }
+
+    private string GetActivityBadgeClass(string activityType)
+    {
+        return activityType switch
+        {
+            "SessionCreated" => "session-badge",
+            "SessionEnded" => "session-badge",
+            "SongRequested" => "song-badge",
+            "SongPlayed" => "song-badge",
+            "DeviceJoined" => "user-badge",
+            "ListenerLeft" => "user-badge",
+            "Error" => "error-badge",
+            _ => "default-badge"
+        };
+    }
+
+    private string GetActivityIcon(string activityType)
+    {
+        return activityType switch
+        {
+            "SessionCreated" => "🎤",
+            "SessionEnded" => "⏹️",
+            "SongRequested" => "🎵",
+            "SongPlayed" => "▶️",
+            "DeviceJoined" => "👤",
+            "ListenerLeft" => "👋",
+            "Error" => "⚠️",
+            _ => "📝"
+        };
+    }
+
+    private string GetLevelClass(LogLevel level)
+    {
+        return level switch
+        {
+            LogLevel.Error => "level-error",
+            LogLevel.Warning => "level-warning",
+            LogLevel.Information => "level-info",
+            _ => "level-default"
+        };
+    }
+
+    private void ShowClearConfirmation()
+    {
+        _showClearConfirmation = true;
+    }
+
+    private void CancelClear()
+    {
+        _showClearConfirmation = false;
+    }
+
+    private async Task ClearOldLogs()
+    {
+        _showClearConfirmation = false;
+        var cutoffDate = DateTime.UtcNow.AddDays(-1);
+        await SessionActivityLogger.ClearOldLogsAsync(cutoffDate);
+        await LoadLogsAsync();
+    }
+
+    private void StartAutoRefresh()
+    {
+        _refreshTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadLogsAsync();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    private void StopAutoRefresh()
+    {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+    }
+
+    public void Dispose()
+    {
+        StopAutoRefresh();
+    }
+}

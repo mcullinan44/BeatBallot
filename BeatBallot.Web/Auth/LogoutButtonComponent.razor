@@ -1,0 +1,56 @@
+﻿@* DJLogoutButton.razor *@
+@inject NavigationManager Navigation
+
+<div class="dj-logout-container">
+    <button class="dj-logout-button" @onclick="ShowConfirmation">
+        <span class="logout-icon">🎧</span>
+        End Session
+    </button>
+
+    @if (_showConfirmation)
+    {
+        <div class="logout-confirmation-overlay">
+            <div class="logout-confirmation-modal">
+                <h3>End DJ Session?</h3>
+                <p>This will stop voting and end the session for all listeners.</p>
+                <div class="confirmation-buttons">
+                    <button class="btn-cancel" @onclick="CancelLogout">
+                        Cancel
+                    </button>
+                    <button class="btn-confirm" @onclick="ConfirmLogout">
+                        End Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnLogout { get; set; }
+
+    private bool _showConfirmation;
+
+    private void ShowConfirmation()
+    {
+        _showConfirmation = true;
+        StateHasChanged();
+    }
+
+    private void CancelLogout()
+    {
+        _showConfirmation = false;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmLogout()
+    {
+        _showConfirmation = false;
+
+        // Call parent logout logic (stop voting, cleanup SignalR, etc.)
+        await OnLogout.InvokeAsync();
+
+        // Navigate to home or DJ dashboard
+        Navigation.NavigateTo("/", true);
+    }
+}

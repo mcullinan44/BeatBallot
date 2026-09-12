@@ -1,0 +1,362 @@
+/* wwwroot/css/BeatBallot.css - Global styles file */
+
+/* Global keyframes animations */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+}
+
+
+@keyframes progress-flow {
+    0%, 100% {
+        filter: brightness(1);
+    }
+
+    50% {
+        filter: brightness(1.2);
+    }
+}
+
+@keyframes vote-flash {
+    0% {
+        background: linear-gradient(45deg, rgba(231,76,60,0.5), rgba(243,156,18,0.5));
+    }
+
+    100% {
+        background: linear-gradient(45deg, rgba(231,76,60,0.3), rgba(243,156,18,0.3));
+    }
+}
+
+@keyframes pulse-green {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 10px rgba(46, 204, 113, 0);
+    }
+}
+
+@keyframes success-fade {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 0 0 15px rgba(231,76,60,0.4);
+    }
+
+    to {
+        box-shadow: 0 0 25px rgba(231,76,60,0.6);
+    }
+}
+
+@keyframes soundWave {
+    0%, 100% {
+        transform: scaleY(1);
+    }
+
+    50% {
+        transform: scaleY(0.3);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+@keyframes reconnectPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.02);
+        opacity: 0.95;
+    }
+}
+
+/* Global app styles */
+body {
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    background: #1A252F;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* Override any default Blazor/Bootstrap styles that might be interfering */
+.song-option {
+    background: rgba(0, 0, 0, 0.3) !important;
+    color: white !important;
+    border: 2px solid transparent !important;
+}
+
+    .song-option:hover {
+        background: rgba(0, 0, 0, 0.5) !important;
+    }
+
+.voting-section {
+    background: transparent !important;
+}
+
+.song-container {
+    background: transparent !important;
+}
+
+/* Utility classes */
+.vote-container {
+    max-width: 400px;
+    margin: 0 auto;
+    background: #1A252F;
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    min-height: 100vh;
+}
+
+.success-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(45deg, #e74c3c, #f39c12);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 25px;
+    font-weight: bold;
+    z-index: 2000;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    animation: success-fade 2s ease-in-out;
+}
+
+.btn-icon {
+    font-size: 1.1em;
+}
+
+/* DJ Dashboard Mobile Responsiveness */
+@media (max-width: 768px) {
+    /* Header Component */
+    .dj-header {
+        padding: 0 15px;
+        height: 60px;
+    }
+
+    .logo {
+        font-size: 1.5em;
+    }
+
+    .logo-subtitle {
+        display: none;
+    }
+
+    .user-details {
+        display: none;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+    /* Sidebar Component */
+    .dj-sidebar {
+        position: fixed;
+        left: -280px;
+        z-index: 999;
+        height: 100vh;
+        top: 0;
+    }
+
+        .dj-sidebar.show {
+            left: 0;
+        }
+
+        .dj-sidebar.collapsed {
+            left: -70px;
+        }
+
+    /* Layout Component */
+    .main-content {
+        margin-left: 0;
+    }
+
+        .main-content.sidebar-collapsed {
+            margin-left: 0;
+        }
+
+    .content-wrapper {
+        padding: 20px 15px;
+    }
+
+    .mobile-overlay {
+        display: block;
+    }
+
+    /* Playlists Component */
+    .page-header {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+    }
+
+    .playlists-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .playlist-actions {
+        justify-content: space-between;
+    }
+
+    .action-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    /* History Component */
+    .filter-controls {
+        justify-content: space-between;
+    }
+
+    .stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .stat-card {
+        padding: 20px;
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .session-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .session-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .session-stats {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .session-actions {
+        justify-content: space-between;
+    }
+
+    .track-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    /* Admin Panel Mobile Styles */
+    .admin-header {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .control-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .stats-section {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+    }
+
+    .filter-dropdown, .search-input {
+        width: 100%;
+    }
+
+    .logs-table-container {
+        font-size: 0.85em;
+    }
+
+    .logs-table th,
+    .logs-table td {
+        padding: 8px 6px;
+    }
+
+    .message-cell {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-overview {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
