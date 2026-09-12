@@ -35,8 +35,13 @@ ACR_ID=$(az acr show \
   --output tsv)
 
 echo "=== Granting App Service AcrPull on the registry ==="
+# Use --assignee-object-id/--assignee-principal-type instead of --assignee: the
+# managed identity's service principal can take a few seconds to replicate in
+# Azure AD after `az webapp identity assign`, and --assignee triggers a graph
+# lookup that fails during that window. The object-id form skips that lookup.
 az role assignment create \
-  --assignee "$PRINCIPAL_ID" \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
   --scope "$ACR_ID" \
   --role AcrPull
 
