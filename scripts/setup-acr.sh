@@ -45,6 +45,14 @@ az role assignment create \
   --scope "$ACR_ID" \
   --role AcrPull
 
+echo "=== Telling App Service to authenticate to ACR with its managed identity ==="
+# AcrPull only grants permission -- App Service still defaults to registry admin
+# credentials (disabled above) unless told to use the identity for the pull.
+az webapp config set \
+  --name "$APP_SERVICE_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+
 echo ""
 echo "Setup complete."
 echo "ACR login server: $ACR_NAME.azurecr.io"
