@@ -51,7 +51,7 @@ echo "=== Telling App Service to authenticate to ACR with its managed identity =
 az webapp config set \
   --name "$APP_SERVICE_NAME" \
   --resource-group "$RESOURCE_GROUP" \
-  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+  --generic-configurations acrUseManagedIdentityCreds=true
 
 echo ""
 echo "Setup complete."
