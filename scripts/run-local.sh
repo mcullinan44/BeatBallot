@@ -18,9 +18,9 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 if command -v doppler >/dev/null 2>&1; then
   echo "=== Running with secrets from Doppler ($DOPPLER_PROJECT/$DOPPLER_CONFIG) ==="
   exec doppler run --project "$DOPPLER_PROJECT" --config "$DOPPLER_CONFIG" -- \
-    dotnet run --project "$REPO_ROOT/BeatBallot.Web"
+    dotnet run --project "$REPO_ROOT/BeatBallot.Web" --launch-profile https
 else
   echo "Doppler CLI not found -- falling back to whatever's already in 'dotnet user-secrets'."
   echo "Install Doppler to stop managing user-secrets by hand: https://docs.doppler.com/docs/install-cli"
-  exec dotnet run --project "$REPO_ROOT/BeatBallot.Web"
+  exec dotnet run --project "$REPO_ROOT/BeatBallot.Web" --launch-profile https
 fi
