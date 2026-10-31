@@ -366,6 +366,7 @@ FodyWeavers.xsd
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Backup of pre-history-rewrite git data (local only, never commit)
 .git.backup-*/
