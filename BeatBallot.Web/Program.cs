@@ -2,8 +2,6 @@ using BeatBallot.Data;
 using BeatBallot.Web.Admin;
 using BeatBallot.Web.LiveSession.TakeRequests;
 using BeatBallot.Web.LiveSession.TakeRequests.Shared;
-using BeatBallot.Web.LiveSession.VotingExperience;
-using BeatBallot.Web.LiveSession.VotingExperience.Shared;
 using BeatBallot.Web.Services;
 using BeatBallot.Web.Services.Local;
 using BeatBallot.Web.Services.Middleware;
@@ -37,7 +35,6 @@ builder.Services.AddSingleton<StringCompressorService>();
 
 
 builder.Services.AddMemoryCache();
-builder.Services.AddScoped<IPlaylistVoteCacheService, PlaylistVoteCacheService>();
 builder.Services.AddScoped<ISongRequestCacheService, SongRequestCacheService>();
 builder.Services.AddScoped<ISpotifyTokenService, SpotifyTokenService>();
 builder.Services.AddScoped<SpotifySearchService>();
@@ -126,9 +123,6 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapBlazorHub();
-    endpoints.MapHub<VotingHub>("/votingHub");
-    
-
     endpoints.MapHub<SongRequestHub>("/songRequestHub");
     endpoints.MapFallbackToPage("/_Host");
 });

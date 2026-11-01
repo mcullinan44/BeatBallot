@@ -210,7 +210,7 @@
                             </span>
                         </label>
                     </div> *@
-                </div> 
+                </div>
 
         @*         <!-- Visibility Settings -->
                 <div class="policy-group">
@@ -311,50 +311,6 @@
                     </div> *@
                 </div>
 
-                <!-- Auto-Play Controls -->
-                <div class="policy-group">
-                    <h4 class="policy-group-title">Playback Controls</h4>
-
-                    <div class="policy-control-item">
-                        <label class="policy-toggle">
-                            <input type="checkbox"
-                                   @bind="_isAutoPlayEnabled"
-                                   @bind:after="OnAutoPlayToggled"
-                                   class="toggle-input" />
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-label">
-                                <span class="toggle-text">Auto-Play Mode</span>
-                                <span class="toggle-description">
-                                    @if (_isAutoPlayEnabled)
-                                    {
-                                        <span class="policy-status active">🔄 Automatically play next song when current song ends</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="policy-status inactive">⏸️ Manual playback control</span>
-                                    }
-                                </span>
-                            </span>
-                        </label>
-                    </div>
-
-  @*                   @if (_isAutoPlayEnabled && _requestedSongs.Any())
-                    {
-                        <div class="policy-control-item auto-play-status">
-                            <div class="auto-play-info">
-                                <span class="auto-play-label">Current Queue Position:</span>
-                                <span class="auto-play-position">@(_currentAutoPlayIndex + 1) of @GetDisplaySongs().Count()</span>
-                                @if (_nextSongInQueue != null)
-                                {
-                                    <div class="next-song-info">
-                                        <span class="next-song-label">Up Next:</span>
-                                        <span class="next-song-title">@_nextSongInQueue.Name by @SpotifySearchService.GetAllArtistNames(_nextSongInQueue)</span>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    } *@
-                </div>
             </div>
 
             @if (_policyChangesPending)
@@ -560,20 +516,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                     <span class="drag-hint">💡 Drag songs to reorder your playlist</span>
                 }
 
-                @if (_isAutoPlayEnabled)
-                {
-                    <div class="auto-play-controls">
-                        <button class="control-btn auto-play-btn previous" @onclick="PlayPreviousSong" disabled="@(_currentAutoPlayIndex <= 0)">
-                            <span class="btn-icon">⏮️</span>
-                            <span>Previous</span>
-                        </button>
-                        <button class="control-btn auto-play-btn next" @onclick="PlayNextSong" disabled="@(_currentAutoPlayIndex >= GetDisplaySongs().Count() - 1)">
-                            <span class="btn-icon">⏭️</span>
-                            <span>Next</span>
-                        </button>
-                    </div>
-                }
-
                 <div class="sort-controls">
                     <label class="sort-label">Sort by:</label>
                     <select class="sort-dropdown" @bind="_currentSortMode" @bind:after="OnSortModeChanged">
@@ -609,7 +551,7 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                 @foreach (var songGroup in GetDisplaySongs().Select((song, index) => new { Song = song, Index = index }))
                 {
 
-                    <div class="song-card @(songGroup.Song.Uri == _currentlyPlayingSongId ? "currently-playing" : "") @(_currentSortMode == SortMode.Custom ? "draggable" : "") @(_dragTargetIndex == songGroup.Index ? "drag-target" : "") @(_isAutoPlayEnabled && songGroup.Index == _currentAutoPlayIndex ? "auto-play-current" : "")"
+                    <div class="song-card @(_currentSortMode == SortMode.Custom ? "draggable" : "") @(_dragTargetIndex == songGroup.Index ? "drag-target" : "")"
                          draggable="@(_currentSortMode == SortMode.Custom ? "true" : "false")"
                          @ondragstart="@(() => OnDragStart(songGroup.Index))"
                          @ondragstart:preventDefault="false"
@@ -637,16 +579,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                                         <span class="hot-indicator">🔥</span>
                                     }
                                 </div>
-                                @if (songGroup.Song.Uri == _currentlyPlayingSongId)
-                                {
-                                    <span class="playing-indicator">♪</span>
-                                    <span class="position-text">Playing</span>
-                                }
-                @*                 @if (_isAutoPlayEnabled && songGroup.Index == _currentAutoPlayIndex)
-                                {
-                                    <span class="auto-play-indicator">🎯</span>
-                                    <span class="position-text">Queue Position</span>
-                                } *@
                             </div>
 
                             @if (_currentSortMode == SortMode.Custom)
@@ -667,16 +599,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                                 {
                                     <div class="cover-placeholder">🎵</div>
                                 }
-                                @if (songGroup.Song.Uri == _currentlyPlayingSongId)
-                                {
-                                    <div class="playing-overlay">
-                                        <div class="playing-animation">
-                                            <span></span>
-                                            <span></span>
-                                            <span></span>
-                                        </div>
-                                    </div>
-                                }
                             </div>
 
                             <div class="song-info">
@@ -689,33 +611,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                                     <span class="last-requested">🕘 Latest: @GetLatestRequestTime(songGroup.Song.Id).ToLocalTime().ToString("HH:mm:ss")</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="song-actions">
-                            @if (songGroup.Song.Uri == _currentlyPlayingSongId)
-                            {
-                                @if (_isPlaying)
-                                {
-                                    <button class="play-btn pause-state" @onclick="() => PauseSong()">
-                                        <span class="btn-icon">⏸️</span>
-                                        <span>Pause</span>
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="play-btn resume-state" @onclick="() => ResumeSong()">
-                                        <span class="btn-icon">▶️</span>
-                                        <span>Resume</span>
-                                    </button>
-                                }
-                            }
-                            else
-                            {
-                                <button class="play-btn" @onclick="() => PlaySong(songGroup.Song.Uri, songGroup.Index)">
-                                    <span class="btn-icon">▶️</span>
-                                    <span>Play Now</span>
-                                </button>
-                            }
                         </div>
 
                         <div class="requesters">
@@ -813,56 +708,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
 
 
 
-    <!-- Add this device selector modal at the end of your component, before the closing div -->
-    @if (_showDeviceSelector)
-    {
-        <div class="modal-overlay" @onclick="CancelDeviceSelector">
-            <div class="device-selector-modal" @onclick:stopPropagation="true">
-                <div class="modal-header">
-                    <h3 class="modal-title">Select Spotify Device</h3>
-                    <button class="close-modal-btn" @onclick="CancelDeviceSelector">×</button>
-                </div>
-
-                <div class="modal-content">
-                    <div class="device-icon">🎵</div>
-                    <p class="device-message">
-                        Choose which Spotify device to use for playback:
-                    </p>
-
-                    <div class="devices-list">
-                        @foreach (var device in _availableDevices)
-                        {
-                            <button class="device-option @(device.IsActive ? "active" : "")"
-                                    @onclick="() => SelectDevice(device.Id)">
-                                <div class="device-info">
-                                    <span class="device-name">@device.Name</span>
-                                    <span class="device-type">@GetDeviceTypeIcon(device.Type) @device.Type</span>
-                                    @if (device.IsActive)
-                                    {
-                                        <span class="active-indicator">Currently Active</span>
-                                    }
-                                </div>
-                                <div class="device-volume">
-                                    @if (device.VolumePercent.HasValue)
-                                    {
-                                        <span class="volume-text">🔊 @device.VolumePercent%</span>
-                                    }
-                                </div>
-                            </button>
-                        }
-                    </div>
-
-                    <div class="device-help">
-                        <p class="help-text">
-                            💡 Don't see your device? Make sure Spotify is open and playing on the device you want to use.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-
-
 
 </div>
 
@@ -871,12 +716,10 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
 
     private HubConnection? _hubConnection;
     private readonly DateTime _sessionStartTime = DateTime.Now;
-    private bool _isPlaying;
     private bool _showStopConfirmation;
     private bool _isSessionOver = false;
     private bool _showClearAllConfirmation;
     private bool _isLoading;
-    private string _currentlyPlayingSongId = "";
     private int _totalRequests;
     private int _totalUniqueRequests;
     private int _activeListeners;
@@ -885,18 +728,7 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
     private SortMode _currentSortMode = SortMode.MostRecent;
     private System.Threading.Timer? _durationTimer;
     private string _statusMessage = "";
-    private bool _showDeviceSelector;
     private string _sessionTime;
-    private List<Device> _availableDevices = new();
-
-    // Auto-play functionality
-    private bool _isAutoPlayEnabled = false;
-    private int _currentAutoPlayIndex = -1;
-    private FullTrack? _nextSongInQueue = null;
-    private System.Threading.Timer? _playbackMonitorTimer;
-    private DateTime? _currentSongStartTime = null;
-    private int? _currentSongDurationMs = null;
-    private bool _isMonitoringPlayback = false;
 
     // Session Policy
     private SessionPolicy _sessionPolicy = new();
@@ -989,193 +821,10 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
 
 
 
-    // Add this helper method to your @code section
-    private string GetDeviceTypeIcon(string deviceType)
-    {
-        return deviceType?.ToLower() switch
-        {
-            "computer" => "💻",
-            "smartphone" => "📱",
-            "speaker" => "🔊",
-            "tv" => "📺",
-            "automobile" => "🚗",
-            "tablet" => "📱",
-            _ => "🎵"
-        };
-    }
-
     private void ClearStatusMessage()
     {
         _statusMessage = "";
         StateHasChanged();
-    }
-
-    // Auto-play methods
-    private async Task OnAutoPlayToggled()
-    {
-        if (_isAutoPlayEnabled)
-        {
-            // Initialize auto-play
-            await InitializeAutoPlay();
-        }
-        else
-        {
-            // Disable auto-play
-            await DisableAutoPlay();
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task InitializeAutoPlay()
-    {
-        try
-        {
-            var displaySongs = GetDisplaySongs().ToList();
-            if (!displaySongs.Any())
-            {
-                _isAutoPlayEnabled = false;
-                _statusMessage = "⚠️ No songs available for auto-play";
-                return;
-            }
-
-            // Set current index to the currently playing song if any, otherwise start from beginning
-            if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
-            {
-                var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
-                _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
-            }
-            else
-            {
-                _currentAutoPlayIndex = 0;
-            }
-
-            UpdateNextSongInQueue();
-            await StartPlaybackMonitoring();
-
-            _statusMessage = "🔄 Auto-play mode enabled";
-            // Clear message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(_ =>
-            {
-                _statusMessage = "";
-                InvokeAsync(StateHasChanged);
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error initializing auto-play: {ex.Message}");
-            _isAutoPlayEnabled = false;
-            _statusMessage = "❌ Failed to enable auto-play mode";
-        }
-    }
-
-    private async Task DisableAutoPlay()
-    {
-        _currentAutoPlayIndex = -1;
-        _nextSongInQueue = null;
-        await StopPlaybackMonitoring();
-
-        _statusMessage = "⏸️ Auto-play mode disabled";
-        // Clear message after 3 seconds
-        _ = Task.Delay(3000).ContinueWith(_ =>
-        {
-            _statusMessage = "";
-            InvokeAsync(StateHasChanged);
-        });
-    }
-
-    private async Task StartPlaybackMonitoring()
-    {
-        if (_isMonitoringPlayback) return;
-
-        _isMonitoringPlayback = true;
-        _playbackMonitorTimer = new System.Threading.Timer(async _ =>
-        {
-            if (_isAutoPlayEnabled && _isPlaying && !string.IsNullOrEmpty(_currentlyPlayingSongId))
-            {
-                await CheckCurrentPlaybackStatus();
-            }
-        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5)); // Check every 5 seconds
-    }
-
-    private async Task StopPlaybackMonitoring()
-    {
-        _isMonitoringPlayback = false;
-        _playbackMonitorTimer?.Dispose();
-        _playbackMonitorTimer = null;
-        _currentSongStartTime = null;
-        _currentSongDurationMs = null;
-    }
-
-    private async Task CheckCurrentPlaybackStatus()
-    {
-        try
-        {
-            // This method should check Spotify's current playback state
-            // You'll need to implement this in your SpotifyService
-            var playbackState = await SpotifyService.GetCurrentPlaybackAsync();
-
-            if (playbackState?.Item == null || !playbackState.IsPlaying)
-            {
-                // Song has ended or was paused - advance to next if auto-play is enabled
-                if (_isAutoPlayEnabled && !_isSessionOver)
-                {
-                    await InvokeAsync(async () =>
-                    {
-                        await PlayNextSong();
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error checking playback status: {ex.Message}");
-        }
-    }
-
-    private async Task PlayNextSong()
-    {
-        if (!_isAutoPlayEnabled || _isSessionOver) return;
-
-        var displaySongs = GetDisplaySongs().ToList();
-        if (_currentAutoPlayIndex >= displaySongs.Count - 1)
-        {
-            // End of queue
-            _statusMessage = "🎉 Reached end of song queue";
-            _isAutoPlayEnabled = false;
-            UpdateNextSongInQueue();
-            StateHasChanged();
-            return;
-        }
-
-        _currentAutoPlayIndex++;
-        var nextSong = displaySongs[_currentAutoPlayIndex];
-        await PlaySong(nextSong.Uri, _currentAutoPlayIndex);
-        UpdateNextSongInQueue();
-    }
-
-    private async Task PlayPreviousSong()
-    {
-        if (!_isAutoPlayEnabled || _currentAutoPlayIndex <= 0) return;
-
-        _currentAutoPlayIndex--;
-        var displaySongs = GetDisplaySongs().ToList();
-        var previousSong = displaySongs[_currentAutoPlayIndex];
-        await PlaySong(previousSong.Uri, _currentAutoPlayIndex);
-        UpdateNextSongInQueue();
-    }
-
-    private void UpdateNextSongInQueue()
-    {
-        var displaySongs = GetDisplaySongs().ToList();
-        if (_isAutoPlayEnabled && _currentAutoPlayIndex >= 0 && _currentAutoPlayIndex < displaySongs.Count - 1)
-        {
-            _nextSongInQueue = displaySongs[_currentAutoPlayIndex + 1];
-        }
-        else
-        {
-            _nextSongInQueue = null;
-        }
     }
 
     // Policy management methods
@@ -1434,13 +1083,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
 
 
                     await LoadRequestsData();
-                    
-                    // Update auto-play queue if enabled
-                    if (_isAutoPlayEnabled)
-                    {
-                        UpdateNextSongInQueue();
-                    }
-                    
                     StateHasChanged();
                 });
             });
@@ -1577,12 +1219,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
     private async Task RefreshRequests()
     {
         await LoadRequestsData();
-        
-        // Update auto-play queue if enabled
-        if (_isAutoPlayEnabled)
-        {
-            UpdateNextSongInQueue();
-        }
     }
 
     private IEnumerable<FullTrack> GetDisplaySongs()
@@ -1605,18 +1241,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
         if (_currentSortMode != SortMode.Custom)
         {
             _customOrderSongs = new List<FullTrack>(GetDisplaySongs());
-        }
-
-        // Update auto-play indices when sort order changes
-        if (_isAutoPlayEnabled)
-        {
-            var displaySongs = GetDisplaySongs().ToList();
-            if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
-            {
-                var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
-                _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
-            }
-            UpdateNextSongInQueue();
         }
 
         StateHasChanged();
@@ -1703,15 +1327,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                 newCustomOrder.Insert(insertIndex, draggedSong);
                 // Update the custom order
                 _customOrderSongs = newCustomOrder;
-
-                // Update auto-play index if needed
-                if (_isAutoPlayEnabled && !string.IsNullOrEmpty(_currentlyPlayingSongId))
-                {
-                    var newDisplaySongs = GetDisplaySongs().ToList();
-                    var currentSongIndex = newDisplaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
-                    _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : 0;
-                    UpdateNextSongInQueue();
-                }
             }
         }
         catch (Exception ex)
@@ -1732,183 +1347,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
     }
 
 
-    private async Task PlaySong(string spotifyUri, int? songIndex = null)
-    {
-        try
-        {
-            _currentlyPlayingSongId = spotifyUri;
-            _isPlaying = true;
-
-            // Update auto-play index if provided
-            if (_isAutoPlayEnabled && songIndex.HasValue)
-            {
-                _currentAutoPlayIndex = songIndex.Value;
-                UpdateNextSongInQueue();
-            }
-
-            var result = await SpotifyService.PlaySongWithDeviceCheckAsync(spotifyUri);
-
-            var song = _requestedSongs.FirstOrDefault(s => s.Uri == spotifyUri);
-            if (song != null)
-            {
-                // Log the song being played
-                SessionActivityLogger.LogSongPlayed(
-                    SessionId,
-                    song.Name,
-                    string.Join(", ", song.Artists.Select(a => a.Name)),
-                    _djUserName // Replace with actual DJ name
-                );
-
-                // Set up monitoring for auto-play
-                if (_isAutoPlayEnabled)
-                {
-                    _currentSongStartTime = DateTime.Now;
-                    _currentSongDurationMs = song.DurationMs;
-                }
-            }
-
-
-            if (result.Success)
-            {
-                if (!string.IsNullOrEmpty(result.ActivatedDevice))
-                {
-                    _statusMessage = $"Activated {result.ActivatedDevice} and started playing";
-                    // Clear message after 3 seconds
-                    _ = Task.Delay(3000).ContinueWith(_ =>
-                    {
-                        _statusMessage = "";
-                        InvokeAsync(StateHasChanged);
-                    });
-                }
-            }
-            else
-            {
-                _currentlyPlayingSongId = "";
-                _isPlaying = false;
-
-                if (result.RequiresUserAction)
-                {
-                    await ShowDeviceSelector();
-                }
-                else
-                {
-                    _statusMessage = result.Message;
-                }
-            }
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            SessionActivityLogger.LogError(SessionId, ex.Message, ex);
-            _currentlyPlayingSongId = "";
-            _isPlaying = false;
-            _statusMessage = $"Failed to play song: {ex.Message}";
-            Console.WriteLine($"Failed to play song: {ex.Message}");
-            StateHasChanged();
-        }
-    }
-
-    private async Task PauseSong()
-    {
-        try
-        {
-            var result = await SpotifyService.PausePlaybackWithDeviceCheckAsync();
-            _isPlaying = false;
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            _statusMessage = $"Failed to pause: {ex.Message}";
-            StateHasChanged();
-        }
-    }
-
-    private async Task ResumeSong()
-    {
-        try
-        {
-            var result = await SpotifyService.ResumePlaybackWithDeviceCheckAsync();
-
-            if (result.Success)
-            {
-                _isPlaying = true;
-
-                if (!string.IsNullOrEmpty(result.ActivatedDevice))
-                {
-                    _statusMessage = $"Activated {result.ActivatedDevice} and resumed playback";
-                    _ = Task.Delay(3000).ContinueWith(_ =>
-                    {
-                        _statusMessage = "";
-                        InvokeAsync(StateHasChanged);
-                    });
-                }
-            }
-            else
-            {
-                if (result.RequiresUserAction)
-                {
-                    await ShowDeviceSelector();
-                }
-
-            }
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            _statusMessage = $"Failed to resume: {ex.Message}";
-            StateHasChanged();
-        }
-    }
-
-    private async Task ShowDeviceSelector()
-    {
-        var deviceResponse = await SpotifyService.GetAvailableDevicesAsync();
-
-        if (deviceResponse.Success && deviceResponse.Devices.Any())
-        {
-            _availableDevices = deviceResponse.Devices;
-            _showDeviceSelector = true;
-        }
-        else
-        {
-            _statusMessage = "No Spotify devices found. Please open Spotify on a device (desktop, mobile, or web player) and try again.";
-        }
-    }
-
-    private async Task SelectDevice(string deviceId)
-    {
-        var success = await SpotifyService.ActivateDeviceAsync(deviceId);
-
-        if (success)
-        {
-            var deviceName = _availableDevices.FirstOrDefault(d => d.Id == deviceId)?.Name ?? "device";
-            _statusMessage = $"Activated {deviceName}. You can now play music.";
-            _showDeviceSelector = false;
-
-            // Clear message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(_ =>
-            {
-                _statusMessage = "";
-                InvokeAsync(StateHasChanged);
-            });
-        }
-        else
-        {
-            _statusMessage = "Failed to activate device. Please try again.";
-        }
-
-        StateHasChanged();
-    }
-
-    private void CancelDeviceSelector()
-    {
-        _showDeviceSelector = false;
-        StateHasChanged();
-    }
-
     private async Task RemoveSongRequest(string songId)
     {
         try
@@ -1926,18 +1364,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                 // Update statistics
                 _totalRequests = _songRequestGroups.Sum(g => g.RequestCount);
                 _totalUniqueRequests = _songRequestGroups.Count;
-
-                // Update auto-play indices if needed
-                if (_isAutoPlayEnabled)
-                {
-                    var displaySongs = GetDisplaySongs().ToList();
-                    if (!string.IsNullOrEmpty(_currentlyPlayingSongId))
-                    {
-                        var currentSongIndex = displaySongs.FindIndex(s => s.Uri == _currentlyPlayingSongId);
-                        _currentAutoPlayIndex = currentSongIndex >= 0 ? currentSongIndex : Math.Max(0, _currentAutoPlayIndex - 1);
-                    }
-                    UpdateNextSongInQueue();
-                }
 
                 StateHasChanged();
             }
@@ -2014,12 +1440,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
 
         try
         {
-            // Disable auto-play when stopping session
-            if (_isAutoPlayEnabled)
-            {
-                await DisableAutoPlay();
-            }
-
             // Stop accepting requests via SignalR
             if (_hubConnection?.State == HubConnectionState.Connected)
             {
@@ -2069,13 +1489,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
                 _totalRequests = 0;
                 _totalUniqueRequests = 0;
 
-                // Reset auto-play state
-                if (_isAutoPlayEnabled)
-                {
-                    _currentAutoPlayIndex = -1;
-                    _nextSongInQueue = null;
-                }
-
                 StateHasChanged();
             }
             else
@@ -2113,7 +1526,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
     public async ValueTask DisposeAsync()
     {
         _durationTimer?.Dispose();
-        await StopPlaybackMonitoring();
 
         if (_hubConnection is not null)
         {
