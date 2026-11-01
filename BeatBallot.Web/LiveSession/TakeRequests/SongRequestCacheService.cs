@@ -1,5 +1,4 @@
 ﻿using BeatBallot.Web.LiveSession.TakeRequests.Shared;
-using BeatBallot.Web.LiveSession.VotingExperience.Shared;
 using BeatBallot.Web.Services.Local;
 using BeatBallot.Web.Services.Local.BeatBallot.Web.Services.Local;
 using Microsoft.AspNetCore.SignalR;
