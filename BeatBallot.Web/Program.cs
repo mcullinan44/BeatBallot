@@ -39,7 +39,7 @@ builder.Services.AddSingleton<StringCompressorService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IPlaylistVoteCacheService, PlaylistVoteCacheService>();
 builder.Services.AddScoped<ISongRequestCacheService, SongRequestCacheService>();
-builder.Services.AddScoped<ISpotifyTokenService, SpotifyTokenService>();
+builder.Services.AddSingleton<ISharedSpotifyTokenService, SharedSpotifyTokenService>();
 builder.Services.AddScoped<SpotifySearchService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddBlazoredLocalStorage();
