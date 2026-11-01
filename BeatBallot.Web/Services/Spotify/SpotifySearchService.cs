@@ -12,10 +12,10 @@ namespace BeatBallot.Web.Services.Spotify
         private SpotifyClient _spotifyClient;
         public readonly Guid Guid;
         private readonly ISongRequestCacheService _cacheService;
-        private readonly ISpotifyTokenService _tokenService; // New service to manage DJ tokens
+        private readonly ISharedSpotifyTokenService _tokenService; // app-wide Client Credentials token, shared across all sessions
         private readonly ILogger<SpotifySearchService> _logger;
 
-        public SpotifySearchService(ISpotifyTokenService tokenService, ILogger<SpotifySearchService> logger, ISongRequestCacheService cacheService)
+        public SpotifySearchService(ISharedSpotifyTokenService tokenService, ILogger<SpotifySearchService> logger, ISongRequestCacheService cacheService)
         {
             _tokenService = tokenService;
             _logger = logger;
@@ -26,17 +26,18 @@ namespace BeatBallot.Web.Services.Spotify
             _logger.Log(LogLevel.Information, $"Spotify Service Instance Created: {Guid}");
         }
 
+        // sessionId is unused for token purposes now (search runs on the shared
+        // app-wide token, not a per-DJ one) but kept in the signature since
+        // callers still pass it through for session-policy filtering elsewhere
+        // in this class. _spotifyClient is rebuilt on every call (cheap) rather
+        // than cached permanently, so it always reflects the current shared
+        // token even as that token gets refreshed in the background -- other
+        // methods in this class reference the field directly, assuming a call
+        // to GetClientAsync has already run earlier in the same request.
         private async Task<SpotifyClient> GetClientAsync(string sessionId)
         {
-            if (_spotifyClient == null)
-            {
-                var accessToken = await _tokenService.GetDJTokenForSessionAsync(sessionId);
-                if (!string.IsNullOrEmpty(accessToken))
-                {
-                    _spotifyClient = new SpotifyClient(accessToken);
-                }
-            }
-
+            var accessToken = await _tokenService.GetAccessTokenAsync();
+            _spotifyClient = string.IsNullOrEmpty(accessToken) ? null : new SpotifyClient(accessToken);
             return _spotifyClient;
         }
 

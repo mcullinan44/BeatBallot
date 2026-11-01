@@ -13,7 +13,6 @@
 @using SpotifyAPI.Web
 @using Swan
 @inject NavigationManager Navigation
-@inject ISpotifyTokenService SpotifyTokenService
 @inject SpotifyService SpotifyService
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject ITokenProvider TokenProvider
@@ -1335,8 +1334,6 @@ else if (_djPaymentSettings?.IsPaymentEnabled == true)
         {
             Navigation.NavigateTo("/login");
         }
-
-        SpotifyTokenService.SetDJTokenForSessionAsync(SessionId, token);
 
         var t = await SpotifyService.GetUser();
         _djUserName = t.DisplayName;
