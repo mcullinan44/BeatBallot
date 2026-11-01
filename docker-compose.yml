@@ -9,7 +9,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       BaseUrl: "http://localhost:5078"
 
-      # Override connection string if you want a local SQLite file instead of Azure SQL:
+      # Override connection string if you want a local SQLite file instead:
       # ConnectionStrings__DefaultConnection: "Data Source=/app/data/beatballot.db"
 
       # Spotify — must match a redirect URI registered in your Spotify app dashboard

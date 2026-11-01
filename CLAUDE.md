@@ -15,7 +15,7 @@ dotnet run --project BeatBallot.Web
 # Build solution
 dotnet build BeatBallot.sln
 
-# Publish (Zip Deploy to Azure)
+# Publish a Release build
 dotnet publish BeatBallot.Web -c Release
 ```
 
@@ -49,7 +49,7 @@ dotnet user-secrets set "Spotify:ClientId" "<your-id>" --project BeatBallot.Web
 - **SQLite** via Dapper. `DapperContext.InitializeDatabaseAsync()` creates tables on startup if they don't exist.
 - Tables: `DeeJay`, `Jam` (session), `JamPlaylist`, `JamTrack`.
 - Repositories: `DeeJayRepositorycs.cs`, `SessionRepository`, `SessionPlaylistRepository`, `SessionTrackRepository`.
-- The `DefaultConnection` string in `appsettings.json` currently points to Azure SQL in production but the `DapperContext` uses `SqliteConnection` — verify/configure for local vs. prod environments.
+- The `DefaultConnection` string in `appsettings.json` is unset by default; `DapperContext` uses `SqliteConnection` — verify/configure for local vs. prod environments.
 
 ### Real-Time (SignalR)
 - `SongRequestHub` (`LiveSession/TakeRequests/Shared/SongRequestHub.cs`) is the central SignalR hub.
@@ -93,23 +93,24 @@ docker compose up --build
 # App available at http://localhost:5078
 ```
 
-The container runs on HTTP port 8080 internally (Azure handles TLS termination in production). The `BaseUrl` env var must match the URL you've registered as a redirect URI in your Spotify app dashboard.
+The container runs on HTTP port 8080 internally (Caddy handles TLS termination in production — see below). The `BaseUrl` env var must match the URL you've registered as a redirect URI in your Spotify app dashboard.
 
-## Deployment (Azure Container Registry → App Service)
+## Deployment (DigitalOcean droplet)
 
-Resource group: `Dynamix-dev-rg` | App Service: `BeatBallotWeb20250601005053` | ACR: `beatballotreg`
+BeatBallot runs on a single DigitalOcean droplet (`docker-compose.prod.yml`): the app container, a self-hosted Postgres container, and Caddy as a reverse proxy handling automatic HTTPS (Let's Encrypt) for `beatballot.com`. A single instance is intentional, not a limitation to fix — all live session state is in-memory (see Postgres Data Layer note above), so the app can't scale past one instance anyway.
 
-**First time only** — creates the ACR and grants the App Service permission to pull images:
+**First time only** — provisions a fresh Ubuntu droplet (Docker, firewall, clones the repo):
 ```bash
-bash scripts/setup-acr.sh
+bash scripts/provision-droplet.sh
 ```
 
-**Every deploy:**
+**Deploying:**
 ```bash
-bash scripts/deploy.sh
+DROPLET_HOST=<droplet-ip> bash scripts/deploy-do.sh
 # Optional overrides:
-TAG=v1.2 bash scripts/deploy.sh
-ACR_NAME=myregistry bash scripts/deploy.sh
+GIT_REF=v1.2.0 DROPLET_HOST=<droplet-ip> bash scripts/deploy-do.sh
 ```
 
-The script builds the image, pushes it to ACR, updates the App Service container config, and restarts the service. Azure App Services logging is configured in `appsettings.json` under `AzureAppServices`.
+The script pulls secrets live from Doppler's `prd` config, writes them to `.env.prod` on the droplet, checks out `GIT_REF` (default `main`) exactly, and rebuilds/restarts the stack via `docker-compose.prod.yml`.
+
+**Automated deploys**: `.github/workflows/deploy.yml` runs this same deploy on every **published GitHub Release** (tag), not on every push to `main` — a deploy restarts the app container, which would drop any in-progress DJ session, so deploys are a deliberate action tied to cutting a release rather than a side effect of merging. A `workflow_dispatch` trigger is also available (Actions tab → "Deploy to Droplet" → Run workflow) for on-demand redeploys of any ref.
